@@ -306,7 +306,7 @@ function layoutRight<T extends El>(elements: T[]): T[] {
           width: Math.max(...xs) - Math.min(...xs),
           height: Math.max(...ys) - Math.min(...ys),
           points: points.map((p) => [p.x - start.x, p.y - start.y] as [number, number]),
-          roundness: { type: 2 },
+          roundness: null, // sharp corners: a curve through these bends overshoots them
         });
       }
       const bends = (via.get(e.id) ?? []).map((id) => center(placed.get(id)!));
@@ -322,7 +322,7 @@ function layoutRight<T extends El>(elements: T[]): T[] {
           width: Math.max(...xs) - Math.min(...xs),
           height: Math.max(...ys) - Math.min(...ys),
           points: all.map((p) => [p.x - start.x, p.y - start.y] as [number, number]),
-          roundness: { type: 2 },
+          roundness: null, // sharp corners: a curve through these bends overshoots them
         });
       }
       const start = edgePoint(from, center(to));

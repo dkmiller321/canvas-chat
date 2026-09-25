@@ -28,14 +28,29 @@ export function fitView(bounds: Bounds, viewport: { width: number; height: numbe
   };
 }
 
-export function sceneBounds(
-  elements: readonly { x: number; y: number; width: number; height: number }[],
-): Bounds | null {
+type Positioned = { x: number; y: number; width: number; height: number; points?: unknown };
+
+/** Where an element really is. An arrow's points are relative to (x, y) and can go up or left of it. */
+function extent(e: Positioned): Bounds {
+  if (Array.isArray(e.points) && e.points.length) {
+    const pts = e.points as [number, number][];
+    return {
+      x0: e.x + Math.min(...pts.map((p) => p[0])),
+      y0: e.y + Math.min(...pts.map((p) => p[1])),
+      x1: e.x + Math.max(...pts.map((p) => p[0])),
+      y1: e.y + Math.max(...pts.map((p) => p[1])),
+    };
+  }
+  return { x0: e.x, y0: e.y, x1: e.x + e.width, y1: e.y + e.height };
+}
+
+export function sceneBounds(elements: readonly Positioned[]): Bounds | null {
   if (!elements.length) return null;
+  const all = elements.map(extent);
   return {
-    x0: Math.min(...elements.map((e) => e.x)),
-    y0: Math.min(...elements.map((e) => e.y)),
-    x1: Math.max(...elements.map((e) => e.x + e.width)),
-    y1: Math.max(...elements.map((e) => e.y + e.height)),
+    x0: Math.min(...all.map((b) => b.x0)),
+    y0: Math.min(...all.map((b) => b.y0)),
+    x1: Math.max(...all.map((b) => b.x1)),
+    y1: Math.max(...all.map((b) => b.y1)),
   };
 }

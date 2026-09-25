@@ -462,3 +462,16 @@ Also verified on the real model: code (a 36-line Python script in 12 s; "Add com
 Model-side observations (not fixed, because this model is a deliberate cheap choice):
 - Replies after tool calls are longer than the prompt asks. The prompt was tightened, and the replies improved.
 - Ask AI on a selected shape: this model repeatedly uses the whole-diagram `preset` operation, which the selection guard correctly refuses, or changes the wrong element. With the fixes it now fails within 30–55 s with a clear message instead of hanging. Retest with a stronger model.
+
+## Review: a real model's ML-pipeline diagram (2026-09-25)
+
+Owner's question: is this diagram bad because of the model or the app? **The app.** The model's Mermaid was valid and well structured: six subgraphs, a feedback loop, and one typo ("Pause Type?"). App causes, all fixed:
+1. **`sceneBounds` treated an arrow as x…x+width.** Arrow points can run up or left of the start, so four feedback arrows made the drawing look 8,240 px tall instead of 4,358, and the first view was mis-zoomed and mis-centred. It now uses the points.
+2. **Arrows between groups ignored the route their groups' common level computed.** Feedback arrows left the bottom of the Feedback group and cut diagonally through the other groups. They now follow that route (the "backbone"), and their ports sit on the edges the route uses: a feedback arrow leaves by the upstream edge and enters by the downstream edge. This takes two passes.
+3. **Every arrow crossing a frame reserved a whole row inside the group.** Shapes already in the first or last row now go straight out, so no row is needed.
+4. **Multi-point arrows were drawn as curves that swooped past their bends.** They now have sharp corners.
+5. **Labels were cut off** ("Post-Processing & Formattin", "Data Ingestio"). Shapes are sized from real Excalifont measurements. The editor re-measured text on load before the font arrived; it now re-measures once the font is in, without saving a version.
+
+- `pnpm test`: 146/146. New fixture: the model's exact flowchart, checked against every geometric invariant (no overlaps, frames hold exactly their members, no arrow through a shape, and no label overlapping a shape, another label or a frame border), plus height under 3,600 px.
+- Checked in the running app by redrawing the owner's diagram from its source. That added versions 6 and 7; versions 1–5, including the owner's style changes, remain in the history.
+- The mock E2E suite was **not** re-run: it resets the database, which would delete the owner's chats. Run it after exporting anything worth keeping.

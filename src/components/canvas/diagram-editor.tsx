@@ -203,10 +203,28 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
         frame = requestAnimationFrame(check);
         return;
       }
-      showAll(api);
+      // Text was measured when the scene loaded, possibly before Excalifont had: labels drawn in the
+      // real font then overflowed and were cut off. Re-measure once the font is in, without it
+      // counting as a user edit.
+      void Promise.all([document.fonts.load("20px Excalifont"), document.fonts.load("16px Excalifont")])
+        .catch(() => [])
+        .then(() => {
+          if (cancelled) return;
+          const fixed = restoreElements(api.getSceneElements() as Parameters<typeof restoreElements>[0], null, {
+            refreshDimensions: true,
+            repairBindings: true,
+          });
+          savedHash.current = hashElementsVersion(fixed as Elements);
+          api.updateScene({ elements: fixed, captureUpdate: CaptureUpdateAction.NEVER });
+          showAll(api);
+        });
     };
+    let cancelled = false;
     frame = requestAnimationFrame(check);
-    return () => cancelAnimationFrame(frame);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+    };
   }, [api]); // eslint-disable-line react-hooks/exhaustive-deps -- showAll only reads refs
 
   const shownKey = useRef(contentKey);

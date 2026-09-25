@@ -38,3 +38,22 @@ describe("fitView", () => {
     ).toEqual({ x0: -4, y0: 0, x1: 15, y1: 40 });
   });
 });
+
+describe("sceneBounds with arrows (review of a real diagram, 2026-09-25)", () => {
+  it("uses an arrow's points, which can run up or left of its start", () => {
+    // A feedback arrow starting at the bottom (y 3882) and ending at the top (y 874).
+    const arrow = {
+      x: -22,
+      y: 3882,
+      width: 583,
+      height: 3654,
+      points: [
+        [0, 0],
+        [164, 476],
+        [534, -3008],
+      ],
+    };
+    const shape = { x: 0, y: 0, width: 100, height: 60 };
+    expect(sceneBounds([shape, arrow])).toEqual({ x0: -22, y0: 0, x1: 512, y1: 4358 });
+  });
+});

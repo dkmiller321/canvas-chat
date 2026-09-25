@@ -177,10 +177,14 @@ const FONT = 20;
 const CHAR = FONT * 0.55;
 const LINE = FONT * 1.35;
 
-function size(node: GraphNode) {
+/** Width of a line of label text at 20px; the browser passes a real measurement (Excalifont). */
+export type Measure = (text: string) => number;
+const estimate: Measure = (text) => text.length * CHAR;
+
+function size(node: GraphNode, measure: Measure) {
   if (node.small) return { width: 36, height: 36 };
   const rows = node.label.split("\n");
-  const width = Math.max(120, Math.max(...rows.map((r) => r.length)) * CHAR + 48);
+  const width = Math.max(120, Math.max(...rows.map((r) => measure(r))) + 48);
   const height = Math.max(60, rows.length * LINE + 28);
   return node.shape === "ellipse"
     ? { width: width * 1.2, height: height * 1.2 }
@@ -205,9 +209,9 @@ export function elementIds(g: Graph): Map<string, string> {
 }
 
 /** Starting positions in simple layers; `tidyLayout` does the real layout afterwards. */
-function positions(g: Graph): Map<string, { x: number; y: number; width: number; height: number }> {
+function positions(g: Graph, measure: Measure): Map<string, { x: number; y: number; width: number; height: number }> {
   const out = new Map<string, { x: number; y: number; width: number; height: number }>();
-  const sizes = new Map(g.nodes.map((n) => [n.id, size(n)]));
+  const sizes = new Map(g.nodes.map((n) => [n.id, size(n, measure)]));
   const children = new Map<string, string[]>();
   const indeg = new Map(g.nodes.map((n) => [n.id, 0]));
   for (const e of g.edges) {
@@ -244,8 +248,8 @@ function positions(g: Graph): Map<string, { x: number; y: number; width: number;
   return out;
 }
 
-export function graphToSkeleton(g: Graph): Skeleton[] {
-  const pos = positions(g);
+export function graphToSkeleton(g: Graph, measure: Measure = estimate): Skeleton[] {
+  const pos = positions(g, measure);
   const ids = elementIds(g);
   const shapes: Skeleton[] = g.nodes.map((n) => {
     const p = pos.get(n.id)!;

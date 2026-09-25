@@ -33,10 +33,26 @@ function scene(elements: unknown[], files: Record<string, unknown> = {}, source?
 }
 
 /** Graph → laid-out, styled elements, with a dashed frame and title around each group. */
+/**
+ * Real text widths in Excalidraw's hand-drawn font. Sizing shapes from a character
+ * estimate cut labels off ("Post-Processing & Formattin"), and converting before the
+ * font had loaded measured the group titles in a fallback font.
+ */
+async function measureText(): Promise<(text: string) => number> {
+  await Promise.all([document.fonts.load("20px Excalifont"), document.fonts.load("16px Excalifont")]).catch(() => []);
+  const ctx = document.createElement("canvas").getContext("2d");
+  if (!ctx) return (text) => text.length * 11;
+  ctx.font = "20px Excalifont, Xiaolai, sans-serif";
+  return (text) => ctx.measureText(text).width;
+}
+
 async function graphElements(g: Graph): Promise<unknown[]> {
-  const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
+  const [{ convertToExcalidrawElements }, measure] = await Promise.all([
+    import("@excalidraw/excalidraw"),
+    measureText(),
+  ]);
   const ids = elementIds(g);
-  const elements = convertToExcalidrawElements(graphToSkeleton(g) as Skeleton, { regenerateIds: false });
+  const elements = convertToExcalidrawElements(graphToSkeleton(g, measure) as Skeleton, { regenerateIds: false });
   // Tidy routes every arrow between its bound shapes (and bends back edges); groups are laid out as nested boxes.
   const { elements: laid, frames: groupBoxes } = compoundLayout(elements as unknown as LayoutEl[], g, ids);
   if (!groupBoxes.length) return styleElements(laid);

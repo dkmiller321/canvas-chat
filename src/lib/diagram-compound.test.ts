@@ -2,10 +2,53 @@ import { describe, expect, it } from "vitest";
 import { compoundLayout } from "./diagram-compound";
 import { parseD2 } from "./diagram-formats/d2";
 import { parseDot } from "./diagram-formats/dot";
+import { parseFlowchart } from "./diagram-formats/mermaid-flowchart";
 import { type Graph, elementIds, normalizeGraph } from "./diagram-formats/graph";
 import { ARCH_GRAPH } from "./llm/mock-scripts";
 
 type E = Parameters<typeof compoundLayout>[0][number];
+
+// inclusionai/ling-3.0-flash-vl, 2026-09-25: rendered tall, tangled and mis-fitted.
+const ML_PIPELINE = `flowchart TD
+    subgraph INGEST ["📥 Data Ingestion"]
+        A[Raw Source Documents] --> B[Data Preprocessing]
+        B --> C[Retrieval / RAG Index]
+    end
+    subgraph GENERATE ["🧠 Generation Pipeline"]
+        C --> D[Prompt Engineering]
+        D --> E[LLM Inference]
+        E --> F[Post-Processing & Formatting]
+        F --> G[Output Document]
+    end
+    subgraph EVAL ["📊 Evaluation Stage"]
+        G --> H{Automated Eval}
+        H -->|Metrics| I[Quality Score]
+        G --> J[Human Review]
+        J --> K[Review Annotation]
+        I --> L{Pass Threshold?}
+        K --> L
+    end
+    subgraph DEPLOY ["🚀 Deployment"]
+        L -->|Pass| M[Publish Output Document]
+        L -->|Fail| N[Flag for Improvement]
+    end
+    subgraph FEEDBACK ["🔄 Self-Improving Feedback Loop"]
+        N --> O[Error Analysis]
+        O --> P[Failure Categorization]
+        P --> Q{Pause Type?}
+        Q -->|Prompt Issues| R[Prompt Optimization]
+        Q -->|Knowledge Gaps| S[Update RAG Knowledge Base]
+        Q -->|Model Weakness| T[Collect Fine-Tuning Data]
+        R --> D
+        S --> C
+        T --> U[Model Fine-Tuning]
+        U --> V[Validated Model]
+        V --> E
+    end
+    subgraph MONITOR ["📈 Continuous Monitoring"]
+        M --> W[Track Production Metrics]
+        W --> H
+    end`;
 
 const SAAS_GRAPH = {
   direction: "down" as const,
@@ -200,6 +243,17 @@ cloud.app.api -> cloud.data.redis`),
   it("lays out a real model's top-down architecture graph cleanly", () => {
     // inclusionai/ling-3.0-flash-vl, 2026-09-25: labels piled up and arrows crossed boxes.
     check(normalizeGraph(SAAS_GRAPH));
+  });
+
+  it("lays out a real model's top-down pipeline with a feedback loop (review, 2026-09-25)", () => {
+    const { out, boxes } = check(parseFlowchart(ML_PIPELINE));
+    // Feedback arrows (Feedback -> Generation/Ingestion) go around the groups in between,
+    // which check() confirms (no arrow crosses a shape). The layout also stays compact:
+    // it was 4,358 px tall when every crossing arrow reserved a row in its group.
+    const shapes = [...boxes.values()];
+    const height = Math.max(...shapes.map((b) => b.y + b.height)) - Math.min(...shapes.map((b) => b.y));
+    expect(height, `height ${height}`).toBeLessThan(3600);
+    expect(out.filter((e) => e.type === "arrow")).toHaveLength(27);
   });
 
   it("lays out DOT clusters top to bottom", () => {
