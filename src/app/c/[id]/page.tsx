@@ -16,6 +16,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
       key={conversation.id}
       conversationId={conversation.id}
       initialMessages={conversation.messages}
+      initialArtifacts={conversation.artifacts}
       initialModel={allowed.includes(conversation.model) ? conversation.model : (allowed[0] ?? conversation.model)}
       allowedModels={allowed}
     />

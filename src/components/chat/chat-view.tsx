@@ -2,30 +2,41 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
+import { PanelRightOpen } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/components/app-state";
+import { CanvasPanel } from "@/components/canvas/canvas-panel";
+import { useCanvas } from "@/components/canvas/use-canvas";
+import { Button } from "@/components/ui/button";
+import type { ArtifactSummary } from "@/lib/artifacts";
+import { CanvasActionsContext } from "./canvas-actions";
 import { Composer } from "./composer";
 import { AssistantMessage, UserMessage } from "./message";
 import { ModelPicker } from "./model-picker";
+import { SplitPane } from "./split-pane";
 
 export type ChatViewProps = {
   conversationId: string | null;
   initialMessages: UIMessage[];
+  initialArtifacts: ArtifactSummary[];
   initialModel: string;
   allowedModels: string[];
 };
 
-export function ChatView({ conversationId, initialMessages, initialModel, allowedModels }: ChatViewProps) {
+export function ChatView({ conversationId, initialMessages, initialArtifacts, initialModel, allowedModels }: ChatViewProps) {
   const [id] = useState(() => conversationId ?? crypto.randomUUID());
   const [model, setModel] = useState(initialModel);
   const modelRef = useRef(model);
   modelRef.current = model;
+  const openArtifactRef = useRef<string | null>(null);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/chat",
-        prepareSendMessagesRequest: ({ id, messages }) => ({ body: { id, messages, model: modelRef.current } }),
+        prepareSendMessagesRequest: ({ id, messages }) => ({
+          body: { id, messages, model: modelRef.current, openArtifactId: openArtifactRef.current },
+        }),
       }),
     [],
   );
@@ -37,9 +48,13 @@ export function ChatView({ conversationId, initialMessages, initialModel, allowe
     onFinish: () => conversationsChanged(),
   });
   const busy = status === "submitted" || status === "streaming";
+  const canvas = useCanvas({ initialArtifacts, messages });
+  openArtifactRef.current = canvas.panelOpen ? canvas.openId : null;
   const persisted = useRef(conversationId !== null);
 
-  function send(text: string) {
+  async function send(text: string) {
+    // Save pending manual edits first so the model sees them (PRD A5).
+    await canvas.flush();
     sendMessage({ text });
     if (!persisted.current) {
       // The server creates the conversation on this first message; give it a URL without remounting.
@@ -76,10 +91,25 @@ export function ChatView({ conversationId, initialMessages, initialModel, allowe
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
-  return (
+  const canvasActions = useMemo(() => ({ openArtifact: canvas.openArtifact }), [canvas.openArtifact]);
+
+  const chat = (
     <div className="flex h-full min-w-0 flex-1 flex-col">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <ModelPicker value={model} options={allowedModels} onChange={changeModel} disabled={busy} />
+        {!canvas.panelOpen && canvas.artifacts.length > 0 && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="ml-auto"
+            onClick={() => {
+              const last = canvas.artifacts.at(-1);
+              if (last) canvas.openArtifact(canvas.openId ?? last.id);
+            }}
+          >
+            <PanelRightOpen /> Open canvas
+          </Button>
+        )}
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
@@ -105,5 +135,11 @@ export function ChatView({ conversationId, initialMessages, initialModel, allowe
         <Composer busy={busy} onSend={send} onStop={stop} />
       </div>
     </div>
+  );
+
+  return (
+    <CanvasActionsContext value={canvasActions}>
+      <SplitPane left={chat} right={canvas.panelOpen ? <CanvasPanel canvas={canvas} chatBusy={busy} model={model} /> : null} />
+    </CanvasActionsContext>
   );
 }

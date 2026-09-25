@@ -68,3 +68,27 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 **Surprises**
 
 - E2E-07 caught a real bug. Without `generateMessageId`, `toUIMessageStreamResponse` gave replies ids that repeated across conversations. The upsert then overwrote chat A's reply with chat B's. Fixed by giving replies UUIDs, and message upserts now only update rows in their own conversation (`setWhere`).
+
+## Stage 3 — Document canvas (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 47 passed / 0 failed (includes Markdown round-trip stability through the editor's own extensions, and the pure tool modules) |
+| `pnpm test:e2e --grep "@stage[0-3]"` | 12 passed / 0 failed on the first run (16.9 s). 12 passed again after the autosave fix below, and again after the theme-script change. |
+
+**Playwright MCP walkthrough** (chained E2E-08 → 09 → 10 → 11 in one session, as a user would do it)
+
+- E2E-08: pass. An in-page MutationObserver recorded `streaming: Writing document…` → `streaming: Document created` → `idle: Document created`. `canvas-panel` opened, `doc-title` read "Coffee Guide", the `Brewing` heading was present, one `artifact-card` appeared, and the API showed v1 / `ai`.
+- E2E-09: pass. After typing ` My note.`, the API showed v2 / `user` about 0.93 s later, containing `Use fresh beans. My note.`.
+- E2E-10: pass. The panel was hidden after `canvas-close`; clicking the card showed "Coffee Guide" again.
+- E2E-11: pass. After reload and a card click, the editor text was identical.
+
+**Surprises**
+
+- **Real bug found by the chained walkthrough, missed by the isolated specs:** after a manual edit, close then reopen showed the *old* text. The autosave never updated the hook's cached content, so the remounted editor loaded v1. A pending save could also run after its editor had unmounted. Fixed: content is captured synchronously when a save is flushed; saved content updates the cache (not the reset key); closing, switching and sending flush first. Re-verified via MCP: reopen shows `… My note.`, and closing with an unsaved ` Second.` still saves v3 with it.
+- **Proposed spec addition (not made):** E2E-10 could type a manual edit before closing and assert that the reopened editor shows it. The current specs don't cover this path.
+- Under the mock the "Writing document…" state lasts about 50 ms. The MCP server's round-trips can't sample it with separate calls, so both the spec and the walkthrough use an in-page observer.
+- React warned about an inline `<script>` during a Fast Refresh reload. The theme script now uses `next/script` `beforeInteractive`, and a fresh load plus reload logs no console errors or warnings.

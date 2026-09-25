@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import { AppStateProvider } from "@/components/app-state";
 import { AppShell } from "@/components/app-shell";
 import "./globals.css";
@@ -14,10 +15,10 @@ const themeScript = `(function(){try{var t=localStorage.getItem("theme");var d=t
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en" suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
       <body>
+        <Script id="theme" strategy="beforeInteractive">
+          {themeScript}
+        </Script>
         <AppStateProvider>
           <AppShell>{children}</AppShell>
         </AppStateProvider>

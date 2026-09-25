@@ -1,7 +1,8 @@
 "use client";
 
-import type { UIMessage } from "ai";
+import { isToolUIPart, type UIMessage } from "ai";
 import { Markdown } from "./markdown";
+import { ToolPartView } from "./tool-part";
 
 export function UserMessage({ message }: { message: UIMessage }) {
   const text = message.parts.map((p) => (p.type === "text" ? p.text : "")).join("");
@@ -22,6 +23,7 @@ export function AssistantMessage({ message }: { message: UIMessage }) {
     <div data-testid="message-assistant" className="text-sm leading-relaxed">
       {message.parts.map((part, i) => {
         if (part.type === "text") return <Markdown key={i} text={part.text} />;
+        if (isToolUIPart(part)) return <ToolPartView key={part.toolCallId} part={part} />;
         return null;
       })}
     </div>
