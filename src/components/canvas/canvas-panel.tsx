@@ -20,6 +20,7 @@ import {
   RotateCcw,
   Shapes,
   Trash2,
+  Upload,
   WandSparkles,
   X,
 } from "lucide-react";
@@ -110,6 +111,7 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
   const [sourceText, setSourceText] = useState<string | null>(null);
   const [outline, setOutline] = useState<"auto" | "show" | "hide">("auto");
   const [showMermaid, setShowMermaid] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
   const [words, setWords] = useState(0);
 
   // Leaving an artifact leaves its source view and any open rename.
@@ -141,7 +143,11 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
   const title = artifact?.title ?? preview?.title ?? artifacts.find((a) => a.id === openId)?.title ?? "";
   const isDocument = (artifact?.kind ?? (preview ? "document" : undefined)) === "document";
 
-  async function exportAs(format: "md" | "pdf" | "docx" | "code" | "png" | "svg" | "excalidraw") {
+  const importInput = useRef<HTMLInputElement>(null);
+
+  async function exportAs(
+    format: "md" | "pdf" | "docx" | "code" | "png" | "png-transparent" | "svg" | "svg-dark" | "excalidraw",
+  ) {
     if (!artifact) return;
     const base = slugify(artifact.title);
     if (format === "md" || format === "pdf" || format === "docx" || format === "code") {
@@ -152,7 +158,11 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
     const editor = diagramEditor.current;
     if (!editor) return;
     if (format === "png") saveBlob(await editor.exportPng(), `${base}.png`);
+    if (format === "png-transparent") saveBlob(await editor.exportPng({ transparent: true }), `${base}.png`);
     if (format === "svg") saveBlob(new Blob([await editor.exportSvg()], { type: "image/svg+xml" }), `${base}.svg`);
+    if (format === "svg-dark") {
+      saveBlob(new Blob([await editor.exportSvg({ dark: true })], { type: "image/svg+xml" }), `${base}-dark.svg`);
+    }
     if (format === "excalidraw") {
       saveBlob(new Blob([editor.exportJson()], { type: "application/json" }), `${base}.excalidraw`);
     }
@@ -466,6 +476,30 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
                 >
                   <Code2 />
                 </Button>
+                <input
+                  ref={importInput}
+                  data-testid="diagram-import"
+                  type="file"
+                  accept=".excalidraw,.json,application/json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    e.target.value = "";
+                    if (!file) return;
+                    const problem = await canvas.importScene(await file.text());
+                    if (problem) setImportError(problem);
+                  }}
+                />
+                <Button
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Import .excalidraw file"
+                  title="Import .excalidraw file"
+                  disabled={!editable}
+                  onClick={() => importInput.current?.click()}
+                >
+                  <Upload />
+                </Button>
                 <Button
                   data-testid="diagram-tidy"
                   size="icon-sm"
@@ -525,8 +559,14 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
                     <DropdownMenuItem data-testid="export-png" onSelect={() => exportAs("png")}>
                       PNG image
                     </DropdownMenuItem>
+                    <DropdownMenuItem data-testid="export-png-transparent" onSelect={() => exportAs("png-transparent")}>
+                      PNG, transparent background
+                    </DropdownMenuItem>
                     <DropdownMenuItem data-testid="export-svg" onSelect={() => exportAs("svg")}>
                       SVG image
+                    </DropdownMenuItem>
+                    <DropdownMenuItem data-testid="export-svg-dark" onSelect={() => exportAs("svg-dark")}>
+                      SVG, dark mode
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem data-testid="export-excalidraw" onSelect={() => exportAs("excalidraw")}>
@@ -540,6 +580,17 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
         )}
       </header>
 
+      {importError && (
+        <div
+          role="alert"
+          className="mx-6 mb-2 flex items-center gap-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
+        >
+          <CircleAlert className="size-4 shrink-0" /> <span className="flex-1">{importError}</span>
+          <Button size="sm" variant="ghost" onClick={() => setImportError(null)}>
+            Dismiss
+          </Button>
+        </div>
+      )}
       {(error || viewing !== null) && (
         <div
           className={cn(

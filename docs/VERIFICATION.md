@@ -355,3 +355,17 @@ MCP walkthrough (screenshots `v11-24-type-*`, `v11-25`): all five types are edit
 Surprises and fixes:
 - mermaid-to-excalidraw 2.2 lists class/state/ER support, but in this build it throws internally for them and falls back to a flat image. Our converter now handles these types directly (DECISIONS #20 updated in spirit: it covers four types, not just mind maps).
 - The first screenshots showed grey sequence actors (Mermaid's fills counted as "chosen"), a state back-arrow pointing into empty space, an ER label over both boxes, and a redrawn mind map partly off-screen. All four were fixed and re-checked.
+
+## Stage 15 — Diagram files and library (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 84 passed |
+| `pnpm test:e2e --grep "@stage15 "` | 3 passed / 0 failed on the first run |
+
+MCP walkthrough (real UI):
+- E2E-46: pass. Importing `imported.excalidraw` through the file input gives a user version with labels exactly `["Imported"]`. Extra: a non-Excalidraw JSON file shows "That is not an .excalidraw file." and creates no version.
+- E2E-47: pass. Right-click → "Add to library" in Excalidraw's own menu saved 1 item; after a reload the API still has 1 and the editor's library holds it.
+- E2E-48: pass. "PNG, transparent background" is an RGBA PNG with an empty background; "SVG, dark mode" contains Excalidraw's `invert` filter.
+
+Note: the test reset now also clears the shape library, so library state doesn't leak between specs.

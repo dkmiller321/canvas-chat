@@ -348,6 +348,45 @@ export function useCanvas({
     [flush, load],
   );
 
+  /** Replace the open diagram with an imported .excalidraw file (G9); saved as a user version. */
+  const importScene = useCallback(
+    async (text: string): Promise<string | null> => {
+      const current = docRef.current;
+      if (!current?.artifact.currentVersion) return "Nothing to import into.";
+      let parsed: { type?: unknown; elements?: unknown; appState?: { viewBackgroundColor?: unknown }; files?: unknown };
+      try {
+        parsed = JSON.parse(text) as typeof parsed;
+      } catch {
+        return "That file is not valid JSON.";
+      }
+      if (parsed.type !== "excalidraw" || !Array.isArray(parsed.elements)) return "That is not an .excalidraw file.";
+      await flush();
+      const content = JSON.stringify({
+        type: "excalidraw",
+        version: 2,
+        source: "canvas-chat",
+        elements: parsed.elements,
+        appState: {
+          viewBackgroundColor:
+            typeof parsed.appState?.viewBackgroundColor === "string" ? parsed.appState.viewBackgroundColor : "#ffffff",
+        },
+        files: typeof parsed.files === "object" && parsed.files ? parsed.files : {},
+      });
+      try {
+        await fetchJson<VersionDto>(`/api/artifacts/${current.artifact.id}/versions`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content, author: "user", baseVersionNo: current.artifact.currentVersion.versionNo }),
+        });
+        await load(current.artifact.id);
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : String(e);
+      }
+    },
+    [flush, load],
+  );
+
   /** Redraw the open diagram from edited Mermaid source (G8); saved as a user version. */
   const applyMermaid = useCallback(
     async (mermaid: string): Promise<string | null> => {
@@ -539,6 +578,7 @@ export function useCanvas({
     setLanguage,
     rewriteDiagram,
     applyMermaid,
+    importScene,
   };
 }
 

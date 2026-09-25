@@ -29,8 +29,10 @@ type SceneLike = {
 };
 
 export type DiagramEditorHandle = {
-  exportPng: () => Promise<Blob>;
-  exportSvg: () => Promise<string>;
+  /** `transparent`: no background (G9). */
+  exportPng: (opts?: { transparent?: boolean }) => Promise<Blob>;
+  /** `dark`: rendered in dark mode (G9). */
+  exportSvg: (opts?: { dark?: boolean }) => Promise<string>;
   exportJson: () => string;
   /** Restyle the whole drawing (G7); saved through the normal autosave as a user version. */
   applyPreset: (preset: Preset) => void;
@@ -106,6 +108,41 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   const [asking, setAsking] = useState(false);
   const [instruction, setInstruction] = useState("");
 
+  // Shape library (G9): load the saved items once, then save every change (debounced).
+  const libraryReady = useRef(false);
+  const librarySave = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (!api) return;
+    let cancelled = false;
+    fetch("/api/library")
+      .then((r) => r.json() as Promise<{ items: Parameters<typeof api.updateLibrary>[0]["libraryItems"] }>)
+      .then(async ({ items }) => {
+        if (cancelled) return;
+        await api.updateLibrary({ libraryItems: items, merge: false });
+      })
+      .catch(() => {
+        // An unreadable library starts empty; saving a change writes a fresh one.
+      })
+      .finally(() => {
+        if (!cancelled) libraryReady.current = true;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api]);
+
+  function saveLibrary(items: readonly unknown[]) {
+    if (!libraryReady.current) return;
+    if (librarySave.current) clearTimeout(librarySave.current);
+    librarySave.current = setTimeout(() => {
+      void fetch("/api/library", {
+        method: "PUT",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ items }),
+      });
+    }, 400);
+  }
+
   useEffect(() => {
     if (!testHook || !api) return;
     const w = window as unknown as { __excalidrawAPI?: ExcalidrawImperativeAPI };
@@ -166,20 +203,20 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   useImperativeHandle(
     handleRef,
     () => ({
-      exportPng: () => {
+      exportPng: (opts) => {
         if (!api) throw new Error("Excalidraw is not ready");
         return exportToBlob({
           elements: getNonDeletedElements(api.getSceneElements()),
-          appState: { ...api.getAppState(), exportBackground: true },
+          appState: { ...api.getAppState(), exportBackground: !opts?.transparent, exportWithDarkMode: false },
           files: api.getFiles(),
           mimeType: "image/png",
         });
       },
-      exportSvg: async () => {
+      exportSvg: async (opts) => {
         if (!api) throw new Error("Excalidraw is not ready");
         const svg = await exportToSvg({
           elements: getNonDeletedElements(api.getSceneElements()),
-          appState: { ...api.getAppState(), exportBackground: true },
+          appState: { ...api.getAppState(), exportBackground: true, exportWithDarkMode: Boolean(opts?.dark) },
           files: api.getFiles(),
         });
         return svg.outerHTML;
@@ -254,6 +291,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
           scrollToContent: true,
         }}
         viewModeEnabled={!editable}
+        onLibraryChange={saveLibrary}
         theme={dark ? "dark" : "light"}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } }}
         onChange={(elements, appState) => {
