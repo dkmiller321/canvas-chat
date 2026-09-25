@@ -8,8 +8,16 @@ import { parseMarkdown } from "./markdown";
 const ID = "11111111-2222-3333-4444-555555555555";
 const MD = `# Plan\n\nIntro.\n\n![Login Flow](diagram://${ID})\n\n- [ ] Buy beans\n- [x] Grind\n`;
 // 1×1 transparent PNG.
-const PNG = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==", "base64");
-const image: DiagramImage = { svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>Login</text></svg>', png: PNG, width: 400, height: 200 };
+const PNG = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==",
+  "base64",
+);
+const image: DiagramImage = {
+  svg: '<svg xmlns="http://www.w3.org/2000/svg"><text>Login</text></svg>',
+  png: PNG,
+  width: 400,
+  height: 200,
+};
 
 describe("diagram embeds and task lists in exports", () => {
   it("finds embedded diagram ids once each", () => {

@@ -22,6 +22,7 @@ export default async function ConversationPage({ params }: { params: Promise<{ i
       initialArtifacts={conversation.artifacts}
       initialModel={allowed.includes(conversation.model) ? conversation.model : (allowed[0] ?? conversation.model)}
       allowedModels={allowed}
+      testHooks={env().mockLlm}
     />
   );
 }

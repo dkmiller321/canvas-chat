@@ -86,9 +86,9 @@ function downloadUrl(url: string) {
   a.remove();
 }
 
-type Props = { canvas: Canvas; chatBusy: boolean; model: string };
+type Props = { canvas: Canvas; chatBusy: boolean; model: string; testHooks: boolean };
 
-export function CanvasPanel({ canvas, chatBusy, model }: Props) {
+export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
   const { artifacts, doc, preview, openId, error, rewriting, saveState } = canvas;
   const docEditor = useRef<DocumentEditorHandle>(null);
   const diagramEditor = useRef<DiagramEditorHandle>(null);
@@ -558,6 +558,8 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
             contentKey={doc.contentKey}
             editable={editable}
             onUserChange={canvas.onUserChange}
+            onAskAi={(ids, instruction) => void canvas.rewriteDiagram(ids, instruction, model)}
+            testHook={testHooks}
           />
         )}
 

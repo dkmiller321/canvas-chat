@@ -304,3 +304,17 @@ Surprises and fixes:
 - Next's server bundle resolves `@tiptap/react` to a build without `Node`, so the export route crashed. Server-shared code now imports from `@tiptap/core` (DECISIONS #21).
 - The `diagram-embed` test id was on the card, whose header icons are SVGs too. It now marks only the drawing.
 - Exports previously dropped task-list checkboxes (a stage 9 gap found while wiring embeds). HTML/PDF and DOCX now render ☐/☑.
+
+## Stage 12 — Diagram selection edits (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 69 passed (adds the selection-scope rule: only selected ids may change, no whole-diagram presets) |
+| `pnpm test:e2e --grep "@stage12 "` | 2 passed / 0 failed on the first run |
+| `pnpm test:e2e --grep "@stage([0-9]\|1[012]) "` | 41 passed / 0 failed |
+
+MCP walkthrough (real mouse clicks on the shape, not the test hook; screenshots `v11-16…18`):
+- E2E-39: pass. Clicking the Login box shows "Ask AI about 1 selected"; "make it red" recolours only that box (the ids clicked, selected, sent and changed all match); User and Dashboard keep their colours.
+- E2E-40: pass. "rename to auth" relabels the same box in place (same container id); the drawing updates without a reload.
+
+Surprise: my first walkthrough script reported a failure. `page.waitForFunction` with an *async* predicate returns a Promise, which is truthy, so it didn't wait and read v1. Diffing the versions and re-running with `waitForResponse` showed the app was correct. Logged in KIT_FEEDBACK.

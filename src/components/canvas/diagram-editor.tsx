@@ -11,7 +11,9 @@ import {
 } from "@excalidraw/excalidraw";
 import "@excalidraw/excalidraw/index.css";
 import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
+import { Sparkles } from "lucide-react";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
+import { Button } from "@/components/ui/button";
 
 type Elements = Parameters<typeof hashElementsVersion>[0];
 
@@ -30,6 +32,10 @@ type Props = {
   editable: boolean;
   /** Called on every user change; serialise lazily (debounced). */
   onUserChange: (getContent: () => string) => void;
+  /** "Ask AI" about the selected shapes (G6). */
+  onAskAi: (selectedIds: string[], instruction: string) => void;
+  /** MOCK_LLM only: expose the Excalidraw API as window.__excalidrawAPI for specs. */
+  testHook: boolean;
 };
 
 type StoredScene = {
@@ -60,8 +66,33 @@ function useDarkTheme() {
   return dark;
 }
 
-export function DiagramEditor({ handleRef, content, contentKey, editable, onUserChange }: Props) {
+/** Selected shapes, with a label's text element folded into its container. */
+function selectedShapeIds(
+  elements: readonly { id: string; containerId?: string | null }[],
+  selected: Record<string, boolean>,
+) {
+  const ids = new Set<string>();
+  for (const el of elements) {
+    if (!selected[el.id]) continue;
+    ids.add(el.containerId ?? el.id);
+  }
+  return [...ids];
+}
+
+export function DiagramEditor({ handleRef, content, contentKey, editable, onUserChange, onAskAi, testHook }: Props) {
   const [api, setApi] = useState<ExcalidrawImperativeAPI | null>(null);
+  const [selection, setSelection] = useState<string[]>([]);
+  const [asking, setAsking] = useState(false);
+  const [instruction, setInstruction] = useState("");
+
+  useEffect(() => {
+    if (!testHook || !api) return;
+    const w = window as unknown as { __excalidrawAPI?: ExcalidrawImperativeAPI };
+    w.__excalidrawAPI = api;
+    return () => {
+      if (w.__excalidrawAPI === api) delete w.__excalidrawAPI;
+    };
+  }, [api, testHook]);
   const dark = useDarkTheme();
   const initial = useMemo(() => parse(content), []); // eslint-disable-line react-hooks/exhaustive-deps -- first load only
   // Version hash of what was last loaded or saved; onChange with a different hash is a user edit.
@@ -116,8 +147,56 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
     [api], // eslint-disable-line react-hooks/exhaustive-deps -- serialize only depends on api
   );
 
+  function submitAsk() {
+    if (!instruction.trim() || selection.length === 0) return;
+    onAskAi(selection, instruction.trim());
+    setAsking(false);
+    setInstruction("");
+  }
+
   return (
-    <div data-testid="diagram-editor" className="h-full w-full">
+    <div data-testid="diagram-editor" className="relative h-full w-full">
+      {editable && selection.length > 0 && (
+        <div className="absolute top-16 left-1/2 z-10 -translate-x-1/2">
+          {asking ? (
+            <form
+              className="flex w-[380px] items-center gap-1 rounded-xl border bg-popover p-1.5 shadow-xl"
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitAsk();
+              }}
+            >
+              <Sparkles className="ml-1.5 size-4 shrink-0 text-ai" aria-hidden />
+              <input
+                data-testid="diagram-ask-ai-input"
+                aria-label={`Ask AI about ${selection.length} selected shape${selection.length === 1 ? "" : "s"}`}
+                autoFocus
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                onKeyDown={(e) => {
+                  e.stopPropagation(); // Excalidraw's shortcuts must not see these keys.
+                  if (e.key === "Escape") setAsking(false);
+                }}
+                placeholder="Recolour, rename, add a step after…"
+                className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-sm outline-none"
+              />
+              <Button data-testid="diagram-ask-ai-submit" type="submit" size="sm" disabled={!instruction.trim()}>
+                Apply
+              </Button>
+            </form>
+          ) : (
+            <Button
+              data-testid="diagram-ask-ai-button"
+              size="sm"
+              variant="outline"
+              className="rounded-full bg-popover shadow-md"
+              onClick={() => setAsking(true)}
+            >
+              <Sparkles className="text-ai" /> Ask AI about {selection.length} selected
+            </Button>
+          )}
+        </div>
+      )}
       <Excalidraw
         excalidrawAPI={setApi}
         initialData={{
@@ -129,7 +208,10 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
         viewModeEnabled={!editable}
         theme={dark ? "dark" : "light"}
         UIOptions={{ canvasActions: { loadScene: false, saveToActiveFile: false, export: false, saveAsImage: false } }}
-        onChange={(elements) => {
+        onChange={(elements, appState) => {
+          const ids = selectedShapeIds(elements, appState.selectedElementIds);
+          setSelection((prev) => (prev.length === ids.length && prev.every((x, i) => x === ids[i]) ? prev : ids));
+          if (ids.length === 0) setAsking(false);
           const hash = hashElementsVersion(elements);
           if (hash === savedHash.current) return;
           savedHash.current = hash;

@@ -324,6 +324,30 @@ export function useCanvas({
     }
   }, [flush, addArtifact]);
 
+  /** "Ask AI" about selected diagram shapes (G6). */
+  const rewriteDiagram = useCallback(
+    async (selectedIds: string[], instruction: string, model: string) => {
+      const id = openIdRef.current;
+      if (!id) return;
+      await flush();
+      setRewriting(true);
+      setError(null);
+      try {
+        await fetchJson<EditOutput>(`/api/artifacts/${id}/diagram-rewrite`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ selectedIds, instruction, model }),
+        });
+        await load(id);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        setRewriting(false);
+      }
+    },
+    [flush, load],
+  );
+
   /** Change a code artifact's language (metadata only, not a new version). */
   const setLanguage = useCallback(async (language: string) => {
     const id = openIdRef.current;
@@ -491,6 +515,7 @@ export function useCanvas({
     currentText,
     reloadOpen,
     setLanguage,
+    rewriteDiagram,
   };
 }
 

@@ -6,5 +6,5 @@ export const dynamic = "force-dynamic";
 
 export default async function Home() {
   const settings = await getSettings();
-  return <NewChat initialModel={settings.defaultModel} allowedModels={env().allowedModels} />;
+  return <NewChat initialModel={settings.defaultModel} allowedModels={env().allowedModels} testHooks={env().mockLlm} />;
 }

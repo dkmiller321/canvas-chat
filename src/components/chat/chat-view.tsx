@@ -27,6 +27,8 @@ export type ChatViewProps = {
   initialArtifacts: ArtifactSummary[];
   initialModel: string;
   allowedModels: string[];
+  /** MOCK_LLM only: expose editor APIs to specs (docs/E2E_TESTS.md §4.1). */
+  testHooks: boolean;
 };
 
 export function ChatView({
@@ -35,6 +37,7 @@ export function ChatView({
   initialArtifacts,
   initialModel,
   allowedModels,
+  testHooks,
 }: ChatViewProps) {
   const [id] = useState(() => conversationId ?? crypto.randomUUID());
   const [model, setModel] = useState(initialModel);
@@ -215,7 +218,9 @@ export function ChatView({
     <CanvasActionsContext value={canvasActions}>
       <SplitPane
         left={chat}
-        right={canvas.panelOpen ? <CanvasPanel canvas={canvas} chatBusy={busy} model={model} /> : null}
+        right={
+          canvas.panelOpen ? <CanvasPanel canvas={canvas} chatBusy={busy} model={model} testHooks={testHooks} /> : null
+        }
       />
     </CanvasActionsContext>
   );

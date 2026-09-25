@@ -11,6 +11,7 @@ import {
   editDocumentInput,
   rewriteSelectionInput,
   updateDiagramInput,
+  type DiagramOperation,
 } from "./schemas";
 
 /** Tool outputs, as the client sees them in message parts. */
@@ -121,6 +122,44 @@ export function rewriteTools(artifactId: string) {
         if (!artifact || artifact.kind === "diagram") throw new ToolError("Document not found.");
         const next = rewriteSelection(current(artifact), selected_text, replacement);
         const version = await addVersion(artifactId, next, "ai");
+        return { artifactId, versionNo: version.versionNo };
+      },
+    }),
+  };
+}
+
+/**
+ * Operations allowed when the user asked about specific shapes (G6): changes to
+ * the selected ids only, plus new elements (which may connect to them).
+ */
+export function checkSelectionScope(operations: DiagramOperation[], selectedIds: string[]): void {
+  const allowed = new Set(selectedIds);
+  for (const op of operations) {
+    if (op.op === "add") {
+      if (op.id) allowed.add(op.id);
+      continue;
+    }
+    if (op.op === "preset") throw new ToolError("Restyle only the selected shapes, not the whole diagram.");
+    if (!allowed.has(op.id)) {
+      throw new ToolError(`Element ${op.id} is not selected. Only change: ${selectedIds.join(", ")}.`);
+    }
+  }
+}
+
+/** update_diagram restricted to the user's selection, for "Ask AI" on selected shapes. */
+export function diagramSelectionTools(artifactId: string, selectedIds: string[]) {
+  return {
+    update_diagram: tool({
+      description:
+        "Change the selected shapes with add/remove/relabel/restyle operations. Only the selected ids may be removed, relabelled or restyled.",
+      inputSchema: updateDiagramInput,
+      execute: async ({ artifact_id, operations }): Promise<EditOutput> => {
+        if (artifact_id !== artifactId) throw new ToolError(`Use artifact_id ${artifactId}.`);
+        checkSelectionScope(operations, selectedIds);
+        const artifact = await getArtifact(artifactId);
+        if (!artifact || artifact.kind !== "diagram") throw new ToolError("Diagram not found.");
+        const next = applyDiagramOps(parseScene(current(artifact)), operations);
+        const version = await addVersion(artifactId, JSON.stringify(next), "ai");
         return { artifactId, versionNo: version.versionNo };
       },
     }),
