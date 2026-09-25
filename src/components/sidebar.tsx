@@ -1,9 +1,11 @@
 "use client";
 
-import { MessageSquare, Pencil, Plus, Search, Trash2 } from "lucide-react";
+import { MessageSquare, Pencil, Plus, Search, Settings, Trash2 } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useAppState } from "@/components/app-state";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import type { ConversationListItem } from "@/lib/conversations";
 import { cn } from "@/lib/utils";
@@ -144,6 +146,14 @@ export function Sidebar() {
         )}
       </nav>
 
+      <div className="flex items-center gap-1 border-t p-2">
+        <Button asChild variant="ghost" size="sm" className="flex-1 justify-start">
+          <Link href="/settings" data-testid="settings-link">
+            <Settings /> Settings
+          </Link>
+        </Button>
+        <ThemeToggle />
+      </div>
     </aside>
   );
 }

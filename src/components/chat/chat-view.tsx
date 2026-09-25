@@ -41,11 +41,15 @@ export function ChatView({ conversationId, initialMessages, initialArtifacts, in
     [],
   );
   const { conversationsChanged } = useAppState();
-  const { messages, sendMessage, status, stop, error } = useChat({
+  const { messages, sendMessage, regenerate, status, stop, error } = useChat({
     id,
     messages: initialMessages,
     transport,
     onFinish: () => conversationsChanged(),
+    // The auto-generated title arrives as a transient data part (C5).
+    onData: (part) => {
+      if (part.type === "data-title") conversationsChanged();
+    },
   });
   const busy = status === "submitted" || status === "streaming";
   const canvas = useCanvas({ initialArtifacts, messages });
@@ -113,8 +117,24 @@ export function ChatView({ conversationId, initialMessages, initialArtifacts, in
       </header>
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto flex max-w-3xl flex-col gap-6 px-4 py-6">
-          {messages.map((m) =>
-            m.role === "user" ? <UserMessage key={m.id} message={m} /> : <AssistantMessage key={m.id} message={m} />,
+          {messages.map((m, i) =>
+            m.role === "user" ? (
+              <UserMessage
+                key={m.id}
+                message={m}
+                disabled={busy}
+                onEdit={async (text) => {
+                  await canvas.flush();
+                  sendMessage({ text, messageId: m.id });
+                }}
+              />
+            ) : (
+              <AssistantMessage
+                key={m.id}
+                message={m}
+                onRegenerate={!busy && i === messages.length - 1 ? () => regenerate() : undefined}
+              />
+            ),
           )}
           {status === "submitted" && (
             <div aria-label="Waiting for reply" className="flex gap-1 py-2">

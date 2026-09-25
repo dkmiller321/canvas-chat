@@ -65,3 +65,17 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 18. **[process] Stages 5 and 6 passed on the first run** because the pure tool logic (`applyDiagramOps`) was unit-tested before it was wired up. That pattern worked well.
     - *Kit change:* in CLAUDE.md, have the builder write and unit-test all pure tool modules in stage 0/1, before any UI.
+
+### 2026-09-24 · Stage 7
+
+19. **[stack] Next 16 bans `react-dom/server` imports in the app bundle.** One route's import turned into a compile error that returned 500 from every route, including `/api/test/reset`, so all specs failed at `beforeEach`.
+    - *Kit change:* CLAUDE.md stack notes: "no `react-dom/server` in route handlers; render export HTML from the Markdown AST." Also consider a stage-level smoke check (`curl /api/health` after each change) before running E2E.
+
+20. **[agent][env] CRLF line endings silently broke scripted edits.** Search/replace scripts that match `\n` did nothing on files with `\r\n`, with no error. A feature (the settings link) went missing until an E2E spec caught it.
+    - *Kit change:* ship a `.gitattributes` (`* text=auto eol=lf`) and `.editorconfig` in the kit. Tell the agent to use exact-match edit tools, or to assert that each scripted replacement matched.
+
+21. **[contract] E2E-26 depends on accessible names that the selector contract doesn't list** ("Regenerate", "Edit message", "Save and send", "Conversation title"). I invented them while writing specs in stage 0.
+    - *Kit change:* add `regenerate`, `edit-message`, `edit-message-input`, `edit-message-submit` and `rename-input` testids to the §1.5 contract, so specs and UI agree from day one.
+
+22. **[prd] The E2E contract makes one PRD requirement impossible as written:** D9 "diff view before accepting" versus E2E-12, which applies edits immediately. I resolved it as "diff after apply, reject = restore" (DECISIONS #14).
+    - *Kit change:* decide in the PRD whether AI edits need acceptance; if so, add an accept step to the scenarios.

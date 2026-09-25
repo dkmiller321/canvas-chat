@@ -1,10 +1,22 @@
-import { consumeStream, convertToModelMessages, stepCountIs, streamText, validateUIMessages, type UIMessage } from "ai";
+import {
+  consumeStream,
+  convertToModelMessages,
+  createUIMessageStream,
+  createUIMessageStreamResponse,
+  stepCountIs,
+  streamText,
+  validateUIMessages,
+  type UIMessage,
+} from "ai";
 import { z } from "zod";
-import { saveMessage, syncMessages, upsertConversation } from "@/lib/conversations";
+import { saveMessage, setGeneratedTitle, syncMessages, upsertConversation } from "@/lib/conversations";
 import { env } from "@/lib/env";
 import { loadArtifactContext } from "@/lib/llm/artifact-context";
 import { buildInstructions } from "@/lib/llm/context";
+import { generateTitle } from "@/lib/llm/generate-title";
 import { getModel } from "@/lib/llm/provider";
+import { DEFAULT_TITLE } from "@/lib/llm/title";
+import { getSettings } from "@/lib/settings";
 import { chatTools } from "@/lib/tools";
 import { ToolError } from "@/lib/tools/document";
 
@@ -27,8 +39,18 @@ export async function POST(req: Request) {
   const messages = await validateUIMessages<UIMessage>({ messages: parsed.data.messages });
 
   // The client's list is the history: regenerate and edit-resend drop later messages.
-  await upsertConversation(id, model);
+  const conversation = await upsertConversation(id, model);
   await syncMessages(id, messages);
+
+  // Title a new conversation from its first message, alongside the reply (C5).
+  const firstUser = messages.find((m) => m.role === "user");
+  const firstText = firstUser?.parts.map((p) => (p.type === "text" ? p.text : "")).join(" ").trim();
+  const title =
+    conversation.title === DEFAULT_TITLE && firstText
+      ? getSettings()
+          .then((s) => generateTitle(s.taskModel, firstText, req.signal))
+          .then((t) => setGeneratedTitle(id, t))
+      : null;
 
   const result = streamText({
     model: getModel(model),
@@ -39,17 +61,28 @@ export async function POST(req: Request) {
     abortSignal: req.signal,
   });
 
-  return result.toUIMessageStreamResponse({
+  // Tool failures meant for the model (e.g. "text not found") are useful to the user too;
+  // anything else stays generic so server details don't leak.
+  const onError = (error: unknown) => (error instanceof ToolError ? error.message : "An error occurred.");
+
+  const stream = createUIMessageStream({
     originalMessages: messages,
     // Without this the reply has no stable id, and stored replies overwrite each other.
-    generateMessageId: () => crypto.randomUUID(),
+    generateId: () => crypto.randomUUID(),
+    onError,
+    execute: async ({ writer }) => {
+      writer.merge(result.toUIMessageStream({ onError }));
+      if (title) {
+        // A failed title is not worth failing the reply for; the conversation keeps "New chat".
+        const t = await title.catch(() => null);
+        if (t) writer.write({ type: "data-title", data: { title: t }, transient: true });
+      }
+    },
     // Persist the reply even when the user pressed stop (partial text is kept).
     onFinish: async ({ responseMessage }) => {
       if (responseMessage.parts.length > 0) await saveMessage(id, responseMessage);
     },
-    consumeSseStream: consumeStream,
-    // Tool failures meant for the model (e.g. "text not found") are useful to the user too;
-    // anything else stays generic so server details don't leak.
-    onError: (error) => (error instanceof ToolError ? error.message : "An error occurred."),
   });
+
+  return createUIMessageStreamResponse({ stream, consumeSseStream: consumeStream });
 }

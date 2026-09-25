@@ -92,6 +92,16 @@ export async function updateConversation(id: string, patch: { title?: string; mo
   return row ?? null;
 }
 
+/** Set a generated title unless the user renamed the conversation first. Returns the title now shown. */
+export async function setGeneratedTitle(id: string, title: string): Promise<string | null> {
+  const [row] = await db
+    .update(conversations)
+    .set({ title })
+    .where(and(eq(conversations.id, id), eq(conversations.title, DEFAULT_TITLE)))
+    .returning();
+  return row?.title ?? null;
+}
+
 export async function deleteConversation(id: string): Promise<boolean> {
   const rows = await db.delete(conversations).where(eq(conversations.id, id)).returning({ id: conversations.id });
   return rows.length > 0;

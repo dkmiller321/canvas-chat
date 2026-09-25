@@ -162,3 +162,29 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 **Surprises / gaps**
 
 - G3 (freeform skeleton diagrams) is implemented (`create_diagram` with `elements`, converted with `convertToExcalidrawElements` in the browser), but no mock script or E2E scenario exercises it. Logged in KIT_FEEDBACK.md.
+
+## Stage 7 — Export and polish (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 48 passed / 0 failed (adds the HTML renderer: every block type, escaping, unsafe `javascript:` links dropped) |
+| `pnpm test:e2e --grep "@stage7"` | 1st run: 0/5, because a compile error broke every route (see below). 2nd: 4/5 (settings link missing, see below). 3rd: 5 passed / 0 failed |
+| `pnpm test:e2e` (full suite) | **28 passed / 0 failed** (56.6 s) |
+
+**Playwright MCP walkthrough** (files saved to `test-results/mcp-exports/` and opened)
+
+- E2E-23: pass. Downloaded `coffee-guide.md` (exact v1 Markdown), `coffee-guide.pdf` (19 KB; read back as a rendered page with the H1/H2 headings), and `coffee-guide.docx` (a valid zip; `word/document.xml` has `Heading1`/`Heading2` styles and all four text runs).
+- E2E-24: pass. `login-flow.png` renders the three labelled boxes and arrows; `login-flow.svg` is an `<svg>` containing all labels; `login-flow.excalidraw` has `type: "excalidraw"` and 8 elements.
+- E2E-25: pass. The sidebar showed "Mock Title" 98 ms after send.
+- E2E-26: pass. After Regenerate: 1 user and 1 assistant message (S1 text). After editing the user message to "Show me code" and resending: 1 user and 1 assistant message with a code block, still true after reload.
+- E2E-27: pass. Saved default `mock/beta`; `new-chat`'s `model-picker` then read `mock/beta`.
+- Themes: toggling to dark persisted across reload (`localStorage.theme = "dark"`), and a screenshot showed readable dark UI.
+
+**Surprises**
+
+- Next 16 refuses any import of `react-dom/server` in the app bundle. My PDF HTML used `renderToStaticMarkup`, and the compile error returned 500 from **every** route, including `/api/test/reset`. Replaced it with a small renderer from the same Tiptap JSON the DOCX export uses, so both exports share one Markdown dialect.
+- Several of my scripted (Python) edits silently didn't apply, because files written on Windows have CRLF endings. The sidebar settings link was missing until I found it through the E2E-27 failure. I audited every earlier scripted edit (all present) and switched to exact-match edits.
+- Console, dev only: Excalidraw's font-subsetting worker can't load under Turbopack dev (`file:///ROOT/...`), so it falls back to the main thread and SVG export still works. Checked again against the production build in final acceptance. One `ERR_INCOMPLETE_CHUNKED_ENCODING` came from my walkthrough navigating away mid-stream, not from the app.
