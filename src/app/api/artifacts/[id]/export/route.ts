@@ -2,6 +2,7 @@ import { z } from "zod";
 import { getArtifact } from "@/lib/artifacts";
 import { markdownToDocx } from "@/lib/export/docx";
 import { markdownToPdf } from "@/lib/export/pdf";
+import { languageExtension } from "@/lib/code-languages";
 import { slugify } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
@@ -19,12 +20,27 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     .string()
     .uuid()
     .safeParse((await params).id);
-  const format = z.enum(["md", "pdf", "docx"]).safeParse(new URL(req.url).searchParams.get("format"));
+  const format = z.enum(["md", "pdf", "docx", "code"]).safeParse(new URL(req.url).searchParams.get("format"));
   const artifact = id.success ? await getArtifact(id.data) : null;
-  if (!artifact || artifact.kind !== "document" || !artifact.currentVersion) {
+  if (!artifact || artifact.kind === "diagram" || !artifact.currentVersion) {
     return new Response("Not found", { status: 404 });
   }
-  if (!format.success) return Response.json({ error: "format must be md, pdf or docx" }, { status: 400 });
+  // Code artifacts download as a source file named for their language (D8).
+  if (artifact.kind === "code") {
+    if (!format.success || format.data !== "code") {
+      return Response.json({ error: "code artifacts export with format=code" }, { status: 400 });
+    }
+    return new Response(artifact.currentVersion.content, {
+      headers: {
+        "content-type": "text/plain; charset=utf-8",
+        "content-disposition": `attachment; filename="${slugify(artifact.title)}.${languageExtension(artifact.language)}"`,
+        "cache-control": "no-store",
+      },
+    });
+  }
+  if (!format.success || format.data === "code") {
+    return Response.json({ error: "documents export with format md, pdf or docx" }, { status: 400 });
+  }
 
   const markdown = artifact.currentVersion.content;
   const body =

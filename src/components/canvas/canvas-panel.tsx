@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
+  Code2,
   Copy,
   Download,
   FileCode,
@@ -31,13 +32,25 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { QUICK_ACTIONS, quickActionInstruction } from "@/lib/llm/rewrite-prompt";
+import { CODE_LANGUAGES } from "@/lib/code-languages";
+import {
+  CODE_QUICK_ACTIONS,
+  QUICK_ACTIONS,
+  quickActionInstruction,
+  type QuickActionId,
+} from "@/lib/llm/rewrite-prompt";
 import { cn, slugify } from "@/lib/utils";
 import { Markdown } from "@/components/chat/markdown";
 import { DiffView } from "./diff-view";
 import { DocumentEditor, type DocumentEditorHandle } from "./document-editor";
 import type { DiagramEditorHandle } from "./diagram-editor";
 import type { Canvas } from "./use-canvas";
+
+// CodeMirror and its language packs load only when a code artifact opens.
+const CodeEditor = dynamic(() => import("./code-editor").then((m) => m.CodeEditor), {
+  ssr: false,
+  loading: () => <CenteredSpinner label="Loading code editor" />,
+});
 
 // Excalidraw is large and browser-only: load it when a diagram opens (PRD risk: bundle size).
 const DiagramEditor = dynamic(() => import("./diagram-editor").then((m) => m.DiagramEditor), {
@@ -117,10 +130,10 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
   const title = artifact?.title ?? preview?.title ?? artifacts.find((a) => a.id === openId)?.title ?? "";
   const isDocument = (artifact?.kind ?? (preview ? "document" : undefined)) === "document";
 
-  async function exportAs(format: "md" | "pdf" | "docx" | "png" | "svg" | "excalidraw") {
+  async function exportAs(format: "md" | "pdf" | "docx" | "code" | "png" | "svg" | "excalidraw") {
     if (!artifact) return;
     const base = slugify(artifact.title);
-    if (format === "md" || format === "pdf" || format === "docx") {
+    if (format === "md" || format === "pdf" || format === "docx" || format === "code") {
       await canvas.flush();
       downloadUrl(`/api/artifacts/${artifact.id}/export?format=${format}`);
       return;
@@ -134,7 +147,7 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
     }
   }
 
-  function quickAction(id: (typeof QUICK_ACTIONS)[number]["id"]) {
+  function quickAction(id: QuickActionId) {
     canvas.rewrite({
       instruction: quickActionInstruction(id),
       selectedText: docEditor.current?.selectionMarkdown() ?? null,
@@ -191,7 +204,13 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
                   : "text-muted-foreground hover:bg-background/70 hover:text-foreground",
               )}
             >
-              {a.kind === "document" ? <PenLine className="size-3.5" /> : <Shapes className="size-3.5" />}
+              {a.kind === "document" ? (
+                <PenLine className="size-3.5" />
+              ) : a.kind === "code" ? (
+                <Code2 className="size-3.5" />
+              ) : (
+                <Shapes className="size-3.5" />
+              )}
               {a.title}
             </button>
           ))}
@@ -275,6 +294,23 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
 
         {doc && (
           <div className="flex shrink-0 items-center gap-1 pt-0.5">
+            {artifact?.kind === "code" && (
+              <label className="mr-1">
+                <span className="sr-only">Language</span>
+                <select
+                  data-testid="code-language"
+                  value={artifact.language ?? "text"}
+                  onChange={(e) => void canvas.setLanguage(e.target.value)}
+                  className="h-7 rounded-md border bg-background px-1.5 text-xs text-foreground focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+                >
+                  {CODE_LANGUAGES.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
             <Button
               variant="ghost"
               size="icon-sm"
@@ -402,7 +438,11 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
                 <DropdownMenuLabel>Export</DropdownMenuLabel>
-                {artifact?.kind === "document" ? (
+                {artifact?.kind === "code" ? (
+                  <DropdownMenuItem data-testid="export-code" onSelect={() => exportAs("code")}>
+                    Source file
+                  </DropdownMenuItem>
+                ) : artifact?.kind === "document" ? (
                   <>
                     <DropdownMenuItem data-testid="export-md" onSelect={() => exportAs("md")}>
                       Markdown (.md)
@@ -500,6 +540,15 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
               onWordCount={setWords}
             />
           )
+        ) : artifact?.kind === "code" ? (
+          <CodeEditor
+            key={artifact.id}
+            content={doc.content}
+            contentKey={doc.contentKey}
+            language={artifact.language ?? "text"}
+            editable={editable}
+            onUserChange={canvas.onUserChange}
+          />
         ) : (
           <DiagramEditor
             key={artifact?.id}
@@ -512,7 +561,7 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
         )}
 
         {/* Floating quick actions, bottom-right like Open Canvas. */}
-        {doc && artifact?.kind === "document" && !showDiff && sourceText === null && (
+        {doc && artifact?.kind !== "diagram" && !showDiff && sourceText === null && (
           <div className="absolute right-5 bottom-5 z-10">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -529,8 +578,12 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" side="top" className="w-60">
-                <DropdownMenuLabel>Applies to the selection, or the whole document</DropdownMenuLabel>
-                {QUICK_ACTIONS.map((a) => (
+                <DropdownMenuLabel>
+                  {artifact?.kind === "code"
+                    ? "Applies to the whole file"
+                    : "Applies to the selection, or the whole document"}
+                </DropdownMenuLabel>
+                {(artifact?.kind === "code" ? CODE_QUICK_ACTIONS : QUICK_ACTIONS).map((a) => (
                   <DropdownMenuItem key={a.id} data-testid={`quick-action-${a.id}`} onSelect={() => quickAction(a.id)}>
                     {a.label}
                   </DropdownMenuItem>

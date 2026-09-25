@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { PanelRightOpen, PenLine, Plus, Shapes } from "lucide-react";
+import { Code2, PanelRightOpen, PenLine, Plus, Shapes } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/components/app-state";
 import { CanvasPanel } from "@/components/canvas/canvas-panel";
@@ -125,7 +125,7 @@ export function ChatView({
   }, [messages]);
 
   const canvasActions = useMemo(
-    () => ({ openArtifact: canvas.openArtifact, liveIds: new Set(canvas.artifacts.map((a) => a.id)) }),
+    () => ({ openArtifact: canvas.openArtifact, kinds: new Map(canvas.artifacts.map((a) => [a.id, a.kind])) }),
     [canvas.openArtifact, canvas.artifacts],
   );
 
@@ -145,6 +145,9 @@ export function ChatView({
             </DropdownMenuItem>
             <DropdownMenuItem data-testid="new-diagram" onSelect={() => void createBlank("diagram")}>
               <Shapes /> Diagram
+            </DropdownMenuItem>
+            <DropdownMenuItem data-testid="new-code" onSelect={() => void createBlank("code")}>
+              <Code2 /> Code
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

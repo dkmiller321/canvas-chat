@@ -38,6 +38,9 @@ importers:
       '@excalidraw/mermaid-to-excalidraw':
         specifier: ^2.2.2
         version: 2.2.2
+      '@lezer/highlight':
+        specifier: ^1.2.4
+        version: 1.2.4
       '@openrouter/ai-sdk-provider':
         specifier: ^3.1.0
         version: 3.1.0(ai@7.0.114(zod@4.6.5))(zod@4.6.5)

@@ -8,6 +8,10 @@ export const REWRITE_INSTRUCTIONS = `You edit one selected passage of a Markdown
 Call rewrite_selection exactly once. Copy selected_text verbatim from the request and put the rewritten Markdown in replacement.
 Change only the selection, following the instruction. Keep Markdown formatting.`;
 
+export const CODE_REWRITE_INSTRUCTIONS = `You edit one selected part of a source file.
+Call rewrite_selection exactly once. Copy selected_text verbatim from the request and put the rewritten code in replacement.
+Change only the selection, following the instruction. Return code only: no Markdown fences, no explanations outside comments.`;
+
 export function buildRewriteMessage(r: RewriteRequest): string {
   return [
     `Document id: ${r.artifactId}`,

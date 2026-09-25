@@ -1,9 +1,11 @@
 import { tool } from "ai";
 import { addVersion, createArtifact, getArtifact, type ArtifactDto, type ArtifactKind } from "@/lib/artifacts";
+import { normalizeLanguage } from "@/lib/code-languages";
 import { applyDiagramOps } from "./diagram";
 import { ToolError, applyEdits, rewriteSelection } from "./document";
 import { parseScene } from "./scene";
 import {
+  createCodeInput,
   createDiagramInput,
   createDocumentInput,
   editDocumentInput,
@@ -13,6 +15,7 @@ import {
 
 /** Tool outputs, as the client sees them in message parts. */
 export type CreateDocumentOutput = { artifactId: string; title: string; versionNo: number };
+export type CreateCodeOutput = { artifactId: string; title: string; language: string; versionNo: number };
 export type EditOutput = { artifactId: string; versionNo: number };
 export type CreateDiagramOutput = {
   artifactId: string;
@@ -21,10 +24,10 @@ export type CreateDiagramOutput = {
   elements?: unknown[];
 };
 
-async function loadOwned(conversationId: string, artifactId: string, kind: ArtifactKind): Promise<ArtifactDto> {
+async function loadOwned(conversationId: string, artifactId: string, kinds: ArtifactKind[]): Promise<ArtifactDto> {
   const artifact = await getArtifact(artifactId);
-  if (!artifact || artifact.conversationId !== conversationId || artifact.kind !== kind) {
-    throw new ToolError(`No ${kind} with id ${artifactId} in this conversation.`);
+  if (!artifact || artifact.conversationId !== conversationId || !kinds.includes(artifact.kind)) {
+    throw new ToolError(`No ${kinds.join(" or ")} with id ${artifactId} in this conversation.`);
   }
   return artifact;
 }
@@ -52,12 +55,29 @@ export function chatTools(conversationId: string) {
       },
     }),
 
+    create_code: tool({
+      description: "Create a new code artifact (a program, script or source file) and open it in the code canvas.",
+      inputSchema: createCodeInput,
+      execute: async ({ title, language, code }): Promise<CreateCodeOutput> => {
+        const lang = normalizeLanguage(language);
+        const { id, versionNo } = await createArtifact({
+          conversationId,
+          kind: "code",
+          title,
+          content: code,
+          author: "ai",
+          language: lang,
+        });
+        return { artifactId: id, title, language: lang, versionNo };
+      },
+    }),
+
     edit_document: tool({
       description:
-        "Edit an existing document with exact find/replace pairs. The whole call fails if any find text is not found exactly once.",
+        "Edit an existing document or code artifact with exact find/replace pairs. The whole call fails if any find text is not found exactly once.",
       inputSchema: editDocumentInput,
       execute: async ({ artifact_id, edits }): Promise<EditOutput> => {
-        const artifact = await loadOwned(conversationId, artifact_id, "document");
+        const artifact = await loadOwned(conversationId, artifact_id, ["document", "code"]);
         const next = applyEdits(current(artifact), edits);
         const version = await addVersion(artifact.id, next, "ai");
         return { artifactId: artifact.id, versionNo: version.versionNo };
@@ -80,7 +100,7 @@ export function chatTools(conversationId: string) {
         "Change an existing diagram with add/remove/relabel/restyle operations that reference element ids from the element list. Never redraw the whole diagram.",
       inputSchema: updateDiagramInput,
       execute: async ({ artifact_id, operations }): Promise<EditOutput> => {
-        const artifact = await loadOwned(conversationId, artifact_id, "diagram");
+        const artifact = await loadOwned(conversationId, artifact_id, ["diagram"]);
         const next = applyDiagramOps(parseScene(current(artifact)), operations);
         const version = await addVersion(artifact.id, JSON.stringify(next), "ai");
         return { artifactId: artifact.id, versionNo: version.versionNo };
@@ -98,7 +118,7 @@ export function rewriteTools(artifactId: string) {
       execute: async ({ artifact_id, selected_text, replacement }): Promise<EditOutput> => {
         if (artifact_id !== artifactId) throw new ToolError(`Use artifact_id ${artifactId}.`);
         const artifact = await getArtifact(artifactId);
-        if (!artifact || artifact.kind !== "document") throw new ToolError("Document not found.");
+        if (!artifact || artifact.kind === "diagram") throw new ToolError("Document not found.");
         const next = rewriteSelection(current(artifact), selected_text, replacement);
         const version = await addVersion(artifactId, next, "ai");
         return { artifactId, versionNo: version.versionNo };

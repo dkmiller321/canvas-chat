@@ -272,3 +272,19 @@ Surprises and fixes:
 - The toolbar didn't render until the first interaction: `useEditorState` had subscribed while the editor was still null. It now remounts when the editor is ready.
 - **Real editor bug found by the MCP walkthrough:** a key pressed right after a click acted on the *old* ProseMirror selection (the browser reports clicks through an async `selectionchange`). Enter then split the document at position 0, and the "/" and the checklist landed above the title. Fixed with `SyncSelectionOnKey`, which syncs the selection from the DOM before any key is handled.
 - **Spec strengthened (flagged for review):** E2E-33 and E2E-34 passed while the content landed in the wrong place. They now also assert that the title is untouched and the new block comes after "Use fresh beans.", as the scenario text says. With the fix disabled, E2E-33 fails, so the assertion catches the bug.
+
+## Stage 10 — Code artifacts (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 61 passed (adds language normalisation) |
+| `pnpm test:e2e --grep "@stage10 "` | 3 passed / 0 failed on the first run |
+| `pnpm test:e2e --grep "@stage([0-9]\|10) "` | 38 passed / 0 failed |
+
+MCP walkthrough (screenshots `v11-11…13`):
+- E2E-35: pass. "Write a python script" opened a CodeMirror canvas with Python highlighting and line numbers; kind `code`, language `python`, v1 by ai. Typing ` # done` gave v2 by user.
+- E2E-36: pass. "Rename the function" gave v3 by ai and kept the manual ` # done`; quick action "Add comments" gave v4.
+- E2E-37: pass. The language changed to JavaScript (metadata only, no new version); Export downloaded `fibonacci.js`.
+- Extra: New → Code opens "Untitled code"; TypeScript highlighting in dark mode reads well.
+
+Polish from screenshots: a neutral active-line highlight (it was tinted), and code edits now say "Code updated" instead of "Document updated".

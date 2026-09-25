@@ -27,6 +27,13 @@
   --ai: oklch(0.5 0.14 300);
   --added: oklch(0.93 0.07 150);
   --removed: oklch(0.93 0.06 25);
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-number: #0550ae;
+  --code-comment: #6e7781;
+  --code-function: #8250df;
+  --code-type: #953800;
+  --code-property: #0550ae;
 }
 
 .dark {
@@ -52,6 +59,13 @@
   --ai: oklch(0.78 0.11 300);
   --added: oklch(0.35 0.08 150);
   --removed: oklch(0.36 0.09 25);
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-comment: #8b949e;
+  --code-function: #d2a8ff;
+  --code-type: #ffa657;
+  --code-property: #79c0ff;
 }
 
 @theme inline {

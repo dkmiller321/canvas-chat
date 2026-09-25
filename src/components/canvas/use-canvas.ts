@@ -4,7 +4,7 @@ import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactDto, ArtifactSummary, VersionDto } from "@/lib/artifacts";
 import { mermaidToScene, skeletonToScene } from "@/lib/diagram-client";
-import type { CreateDiagramOutput, CreateDocumentOutput, EditOutput } from "@/lib/tools";
+import type { CreateCodeOutput, CreateDiagramOutput, CreateDocumentOutput, EditOutput } from "@/lib/tools";
 
 const AUTOSAVE_MS = 800;
 
@@ -324,6 +324,24 @@ export function useCanvas({
     }
   }, [flush, addArtifact]);
 
+  /** Change a code artifact's language (metadata only, not a new version). */
+  const setLanguage = useCallback(async (language: string) => {
+    const id = openIdRef.current;
+    if (!id) return;
+    try {
+      const updated = await fetchJson<ArtifactDto>(`/api/artifacts/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ language }),
+      });
+      setDoc((d) =>
+        d && d.artifact.id === id ? { ...d, artifact: { ...d.artifact, language: updated.language } } : d,
+      );
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
   /** The open artifact's saved text, after flushing pending edits. */
   const currentText = useCallback(async () => {
     await flush();
@@ -377,6 +395,20 @@ export function useCanvas({
         if (!isToolUIPart(part) || done.has(part.toolCallId)) continue;
         const name = getToolName(part);
 
+        if (name === "create_code" && (part.state === "input-streaming" || part.state === "input-available")) {
+          if (m === last) {
+            const input = (part.input ?? {}) as Partial<{ title: string; language: string; code: string }>;
+            setPanelOpen(true);
+            setOpenId(null);
+            openIdRef.current = null;
+            setDoc(null);
+            setPreview({
+              title: input.title ?? "",
+              markdown: "```" + (input.language ?? "") + "\n" + (input.code ?? "") + "\n```",
+            });
+          }
+          continue;
+        }
         if (name === "create_document" && (part.state === "input-streaming" || part.state === "input-available")) {
           // Stream the draft into the canvas before the tool has run (D3).
           if (m === last) {
@@ -397,7 +429,14 @@ export function useCanvas({
         if (part.state !== "output-available") continue;
         done.add(part.toolCallId);
 
-        if (name === "create_document") {
+        if (name === "create_code") {
+          const out = part.output as CreateCodeOutput;
+          setArtifacts((list) => [
+            ...list,
+            { id: out.artifactId, kind: "code", title: out.title, version: out.versionNo },
+          ]);
+          openArtifact(out.artifactId);
+        } else if (name === "create_document") {
           const out = part.output as CreateDocumentOutput;
           setArtifacts((list) => [
             ...list,
@@ -451,6 +490,7 @@ export function useCanvas({
     branchShown,
     currentText,
     reloadOpen,
+    setLanguage,
   };
 }
 
