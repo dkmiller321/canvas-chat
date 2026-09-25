@@ -125,7 +125,11 @@ export function ChatView({
   }, [messages]);
 
   const canvasActions = useMemo(
-    () => ({ openArtifact: canvas.openArtifact, kinds: new Map(canvas.artifacts.map((a) => [a.id, a.kind])) }),
+    () => ({
+      openArtifact: canvas.openArtifact,
+      kinds: new Map(canvas.artifacts.map((a) => [a.id, a.kind])),
+      versions: new Map(canvas.artifacts.map((a) => [a.id, a.version])),
+    }),
     [canvas.openArtifact, canvas.artifacts],
   );
 

@@ -33,6 +33,7 @@
     "@excalidraw/mermaid-to-excalidraw": "^2.2.2",
     "@lezer/highlight": "^1.2.4",
     "@openrouter/ai-sdk-provider": "^3.1.0",
+    "@tiptap/core": "3.31.3",
     "@tiptap/extension-list": "^3.31.3",
     "@tiptap/extension-table": "^3.31.3",
     "@tiptap/extensions": "^3.31.3",

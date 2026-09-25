@@ -538,6 +538,7 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
               onAskAi={(selectedText, instruction) => canvas.rewrite({ instruction, selectedText, mode: "ask", model })}
               outline={outline}
               onWordCount={setWords}
+              diagrams={artifacts.filter((a) => a.kind === "diagram").map((a) => ({ id: a.id, title: a.title }))}
             />
           )
         ) : artifact?.kind === "code" ? (

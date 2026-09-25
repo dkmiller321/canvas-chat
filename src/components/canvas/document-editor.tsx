@@ -3,7 +3,7 @@
 import { Markdown } from "@tiptap/markdown";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { TableKit } from "@tiptap/extension-table";
-import { EditorContent, useEditor, type Editor } from "@tiptap/react";
+import { EditorContent, useEditor, type Editor, type Range } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Sparkles } from "lucide-react";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
@@ -13,6 +13,9 @@ import { FormatToolbar } from "./format-toolbar";
 import { KeepSelection, showKeptSelection } from "./keep-selection";
 import { SlashCommand, type SlashMenuState } from "./slash-command";
 import { SyncSelectionOnKey } from "./sync-selection";
+import { DiagramEmbed } from "./diagram-embed-view";
+import { InsertDiagramMenu } from "./insert-diagram-menu";
+import { SLASH_ITEMS, type SlashItem } from "./slash-command";
 
 export type DocumentEditorHandle = {
   /** Markdown of the current selection, or null when nothing is selected. */
@@ -31,6 +34,8 @@ type Props = {
   /** Outline rail: "auto" shows it when the canvas is wide enough. */
   outline: "auto" | "show" | "hide";
   onWordCount: (words: number) => void;
+  /** Diagrams in this conversation, offered by "Insert diagram" and the slash menu (E4). */
+  diagrams: { id: string; title: string }[];
 };
 
 type Heading = { level: number; text: string; pos: number };
@@ -64,7 +69,10 @@ export function DocumentEditor({
   onAskAi,
   outline,
   onWordCount,
+  diagrams,
 }: Props) {
+  const diagramsRef = useRef(diagrams);
+  diagramsRef.current = diagrams;
   const wrapRef = useRef<HTMLDivElement>(null);
   // Where the selection sits, relative to the scroll container.
   const [anchor, setAnchor] = useState<{ above: number; below: number; left: number } | null>(null);
@@ -87,7 +95,21 @@ export function DocumentEditor({
       Markdown,
       KeepSelection,
       SyncSelectionOnKey,
-      SlashCommand.configure({ onState: setSlash }),
+      DiagramEmbed,
+      SlashCommand.configure({
+        onState: setSlash,
+        getItems: (): SlashItem[] => [
+          ...SLASH_ITEMS,
+          ...diagramsRef.current.map((d) => ({
+            id: `diagram-${d.id}`,
+            label: `Diagram: ${d.title}`,
+            hint: "Embed a live diagram",
+            keywords: ["diagram", "drawing", "figure", d.title.toLowerCase()],
+            run: (e: Editor, r: Range) =>
+              e.chain().focus().deleteRange(r).insertContent({ type: "diagramEmbed", attrs: d }).run(),
+          })),
+        ],
+      }),
     ],
     content,
     contentType: "markdown",
@@ -162,7 +184,11 @@ export function DocumentEditor({
     <div className="flex h-full">
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Remount once the editor exists: useEditorState subscribes on mount. */}
-        <FormatToolbar key={editor ? "ready" : "loading"} editor={editor} />
+        <FormatToolbar
+          key={editor ? "ready" : "loading"}
+          editor={editor}
+          extra={<InsertDiagramMenu editor={editor} diagrams={diagrams} />}
+        />
         <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-y-auto">
           <EditorContent editor={editor} className="h-full" />
           {slash && slash.rect && wrapBox && (

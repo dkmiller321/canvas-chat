@@ -288,3 +288,19 @@ MCP walkthrough (screenshots `v11-11…13`):
 - Extra: New → Code opens "Untitled code"; TypeScript highlighting in dark mode reads well.
 
 Polish from screenshots: a neutral active-line highlight (it was tinted), and code edits now say "Code updated" instead of "Document updated".
+
+## Stage 11 — Diagram embeds (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 66 passed (adds embed Markdown round-trip, task lists and embeds in HTML/DOCX exports) |
+| `pnpm test:e2e --grep "@stage11 "` | 1st run failed (test id on the card chrome matched 3 SVGs); 2nd run failed (server export crash, below); 3rd run 1/1 |
+| `pnpm test:e2e --grep "@stage([0-9]\|1[01]) "` | 39 passed / 0 failed |
+
+MCP walkthrough (screenshots `v11-14`, `v11-15`, files `v11-embed-*`):
+- E2E-38: pass, via the "/diagram" slash item this time. The Markdown gained `![Login Flow](diagram://…)` on its own line; the embed rendered the coloured drawing; after "Add a cache" on the diagram, switching back showed Cache in the embed. The PDF shows the diagram with a caption; the DOCX contains `word/media/`; the Markdown export inlines `data:image/svg+xml;base64`.
+
+Surprises and fixes:
+- Next's server bundle resolves `@tiptap/react` to a build without `Node`, so the export route crashed. Server-shared code now imports from `@tiptap/core` (DECISIONS #21).
+- The `diagram-embed` test id was on the card, whose header icons are SVGs too. It now marks only the drawing.
+- Exports previously dropped task-list checkboxes (a stage 9 gap found while wiring embeds). HTML/PDF and DOCX now render ☐/☑.

@@ -1,4 +1,5 @@
-import type { JSONContent } from "@tiptap/react";
+import type { JSONContent } from "@tiptap/core";
+import type { DiagramImage } from "./diagram-images";
 import { parseMarkdown } from "./markdown";
 
 const escape = (s: string) =>
@@ -24,8 +25,8 @@ function inline(node: JSONContent): string {
   return out;
 }
 
-function block(node: JSONContent): string {
-  const children = () => (node.content ?? []).map(block).join("");
+function block(node: JSONContent, diagrams: Map<string, DiagramImage>): string {
+  const children = () => (node.content ?? []).map((n) => block(n, diagrams)).join("");
   const text = () => (node.content ?? []).map(inline).join("");
   switch (node.type) {
     case "doc":
@@ -48,6 +49,17 @@ function block(node: JSONContent): string {
       return `<pre><code>${escape((node.content ?? []).map((t) => t.text ?? "").join(""))}</code></pre>`;
     case "horizontalRule":
       return "<hr>";
+    case "taskList":
+      return `<ul class="tasks">${children()}</ul>`;
+    case "taskItem":
+      return `<li data-box="${node.attrs?.checked ? "☑" : "☐"}">${children()}</li>`;
+    case "diagramEmbed": {
+      const title = escape(String(node.attrs?.title ?? "Diagram"));
+      const image = diagrams.get(String(node.attrs?.id));
+      if (!image) return `<p class="diagram-missing">[Diagram: ${title}]</p>`;
+      const src = `data:image/svg+xml;base64,${Buffer.from(image.svg).toString("base64")}`;
+      return `<figure class="diagram"><img src="${src}" alt="${title}"><figcaption>${title}</figcaption></figure>`;
+    }
     case "table":
       return `<table>${children()}</table>`;
     case "tableRow":
@@ -62,8 +74,8 @@ function block(node: JSONContent): string {
 }
 
 /** Markdown → HTML body, parsed with the editor's own Markdown extensions. */
-export function markdownToHtmlBody(markdown: string): string {
-  return block(parseMarkdown(markdown));
+export function markdownToHtmlBody(markdown: string, diagrams = new Map<string, DiagramImage>()): string {
+  return block(parseMarkdown(markdown), diagrams);
 }
 
 export { escape as escapeHtml };

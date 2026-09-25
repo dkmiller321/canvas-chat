@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { getArtifact } from "@/lib/artifacts";
+import { DIAGRAM_EMBED_RE, diagramIds } from "@/lib/diagram-embed";
+import { renderDiagrams } from "@/lib/export/diagram-images";
 import { markdownToDocx } from "@/lib/export/docx";
 import { markdownToPdf } from "@/lib/export/pdf";
 import { languageExtension } from "@/lib/code-languages";
@@ -43,12 +45,17 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   }
 
   const markdown = artifact.currentVersion.content;
+  // Embedded diagrams (E4) are drawn by the export browser and inlined, so each file stands alone.
+  const diagrams = await renderDiagrams(diagramIds(markdown));
   const body =
     format.data === "md"
-      ? markdown
+      ? markdown.replace(DIAGRAM_EMBED_RE, (whole, title: string, id: string) => {
+          const image = diagrams.get(id);
+          return image ? `![${title}](data:image/svg+xml;base64,${Buffer.from(image.svg).toString("base64")})` : whole;
+        })
       : format.data === "pdf"
-        ? await markdownToPdf(markdown, artifact.title)
-        : await markdownToDocx(markdown, artifact.title);
+        ? await markdownToPdf(markdown, artifact.title, diagrams)
+        : await markdownToDocx(markdown, artifact.title, diagrams);
   const { type, ext } = FORMATS[format.data];
   return new Response(typeof body === "string" ? body : new Uint8Array(body), {
     headers: {

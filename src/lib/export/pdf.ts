@@ -1,4 +1,5 @@
 import { chromium, type Browser } from "playwright";
+import type { DiagramImage } from "./diagram-images";
 import { escapeHtml, markdownToHtmlBody } from "./html";
 
 const STYLES = `
@@ -21,16 +22,21 @@ const STYLES = `
   td p, th p { margin: 0; }
   hr { border: none; border-top: 1px solid #d8dee4; margin: 18pt 0; }
   a { color: #0969da; }
+  figure.diagram { margin: 14pt 0; text-align: center; page-break-inside: avoid; }
+  figure.diagram img { max-width: 100%; max-height: 180mm; }
+  figure.diagram figcaption, .diagram-missing { font-family: Inter, "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #57606a; margin-top: 4pt; }
+  ul.tasks { list-style: none; padding-left: 4pt; }
+  ul.tasks li::before { content: attr(data-box); margin-right: 6pt; }
 `;
 
-export function markdownToHtml(markdown: string, title: string): string {
-  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${STYLES}</style></head><body>${markdownToHtmlBody(markdown)}</body></html>`;
+export function markdownToHtml(markdown: string, title: string, diagrams = new Map<string, DiagramImage>()): string {
+  return `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>${STYLES}</style></head><body>${markdownToHtmlBody(markdown, diagrams)}</body></html>`;
 }
 
 // One headless Chromium for the process; launching per export is slow.
 const globalForPdf = globalThis as unknown as { pdfBrowser?: Promise<Browser> };
 
-function browser(): Promise<Browser> {
+export function exportBrowser(): Promise<Browser> {
   globalForPdf.pdfBrowser ??= chromium.launch({ headless: true }).catch((err: unknown) => {
     globalForPdf.pdfBrowser = undefined;
     throw err;
@@ -38,11 +44,15 @@ function browser(): Promise<Browser> {
   return globalForPdf.pdfBrowser;
 }
 
-export async function markdownToPdf(markdown: string, title: string): Promise<Buffer> {
-  const context = await (await browser()).newContext({ javaScriptEnabled: false });
+export async function markdownToPdf(
+  markdown: string,
+  title: string,
+  diagrams = new Map<string, DiagramImage>(),
+): Promise<Buffer> {
+  const context = await (await exportBrowser()).newContext({ javaScriptEnabled: false });
   try {
     const page = await context.newPage();
-    await page.setContent(markdownToHtml(markdown, title), { waitUntil: "load" });
+    await page.setContent(markdownToHtml(markdown, title, diagrams), { waitUntil: "load" });
     return await page.pdf({ format: "A4", preferCSSPageSize: true });
   } finally {
     await context.close();

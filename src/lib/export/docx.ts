@@ -1,10 +1,11 @@
-import type { JSONContent } from "@tiptap/react";
+import type { JSONContent } from "@tiptap/core";
 import {
   AlignmentType,
   BorderStyle,
   Document,
   ExternalHyperlink,
   HeadingLevel,
+  ImageRun,
   LevelFormat,
   Packer,
   Paragraph,
@@ -16,6 +17,7 @@ import {
   WidthType,
   type ParagraphChild,
 } from "docx";
+import type { DiagramImage } from "./diagram-images";
 import { parseMarkdown } from "./markdown";
 
 const HEADINGS = [
@@ -55,8 +57,13 @@ function runs(nodes: JSONContent[] | undefined): ParagraphChild[] {
 
 type ListCtx = { kind: "bullet" | "ordered"; level: number; instance: number };
 
+// Largest diagram size on an A4 page with default margins, in pixels at 96 dpi.
+const MAX_IMAGE_WIDTH = 600;
+
 class Converter {
   private orderedInstances = 0;
+
+  constructor(private diagrams: Map<string, DiagramImage>) {}
 
   blocks(nodes: JSONContent[] | undefined, list?: ListCtx, indent = 0): (Paragraph | Table)[] {
     return (nodes ?? []).flatMap((n) => this.block(n, list, indent));
@@ -122,6 +129,39 @@ class Converter {
         ];
       case "table":
         return [this.table(node)];
+      case "taskList":
+        return (node.content ?? []).flatMap((item) => {
+          const [first, ...rest] = item.content ?? [];
+          const box = new TextRun({ text: item.attrs?.checked ? "☑ " : "☐ " });
+          return [
+            new Paragraph({ children: [box, ...runs(first?.content)], ...indentProp }),
+            ...rest.flatMap((child) => this.block(child, undefined, indent + 360)),
+          ];
+        });
+      case "diagramEmbed": {
+        const title = String(node.attrs?.title ?? "Diagram");
+        const image = this.diagrams.get(String(node.attrs?.id));
+        if (!image) return [new Paragraph({ children: [new TextRun({ text: `[Diagram: ${title}]`, italics: true })] })];
+        // Screenshots are taken at 2x; scale to fit the page width.
+        const scale = Math.min(1, MAX_IMAGE_WIDTH / image.width);
+        return [
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [
+              new ImageRun({
+                type: "png",
+                data: image.png,
+                transformation: { width: Math.round(image.width * scale), height: Math.round(image.height * scale) },
+                altText: { name: title, title, description: title },
+              }),
+            ],
+          }),
+          new Paragraph({
+            alignment: AlignmentType.CENTER,
+            children: [new TextRun({ text: title, size: 18, color: "57606A" })],
+          }),
+        ];
+      }
       default:
         return node.content ? this.blocks(node.content, list, indent) : [];
     }
@@ -148,7 +188,11 @@ class Converter {
   }
 }
 
-export async function markdownToDocx(markdown: string, title: string): Promise<Buffer> {
+export async function markdownToDocx(
+  markdown: string,
+  title: string,
+  diagrams = new Map<string, DiagramImage>(),
+): Promise<Buffer> {
   const doc = parseMarkdown(markdown);
   const document = new Document({
     title,
@@ -167,7 +211,7 @@ export async function markdownToDocx(markdown: string, title: string): Promise<B
         },
       ],
     },
-    sections: [{ children: new Converter().blocks(doc.content) }],
+    sections: [{ children: new Converter(diagrams).blocks(doc.content) }],
   });
   return Packer.toBuffer(document);
 }
