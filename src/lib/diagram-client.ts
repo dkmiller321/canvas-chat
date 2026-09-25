@@ -1,8 +1,11 @@
 "use client";
 
-import { tidyLayout } from "@/lib/diagram-layout";
+import { type DiagramLanguage, parseSource } from "@/lib/diagram-formats";
+import { compoundLayout } from "@/lib/diagram-compound";
+import { type Graph, elementIds, graphToSkeleton } from "@/lib/diagram-formats/graph";
+import type { tidyLayout } from "@/lib/diagram-layout";
 import { styleElements } from "@/lib/diagram-style";
-import { graphToSkeleton, parseFallback } from "@/lib/mermaid-fallback";
+import { parseFallback } from "@/lib/mermaid-fallback";
 
 /**
  * Browser-only conversion of the AI's diagram input into an Excalidraw scene
@@ -10,8 +13,12 @@ import { graphToSkeleton, parseFallback } from "@/lib/mermaid-fallback";
  */
 
 type Skeleton = Parameters<typeof import("@excalidraw/excalidraw").convertToExcalidrawElements>[0];
+type LayoutEl = Parameters<typeof tidyLayout>[0][number];
 
-function scene(elements: unknown[], files: Record<string, unknown> = {}, mermaid?: string) {
+/** The source a diagram was drawn from, kept so the source panel can show and re-apply it (G8, G10). */
+export type DiagramSource = { language: DiagramLanguage; code: string };
+
+function scene(elements: unknown[], files: Record<string, unknown> = {}, source?: DiagramSource) {
   return JSON.stringify({
     type: "excalidraw",
     version: 2,
@@ -19,9 +26,39 @@ function scene(elements: unknown[], files: Record<string, unknown> = {}, mermaid
     elements,
     appState: { viewBackgroundColor: "#ffffff" },
     files,
-    // Kept so the Mermaid source panel can show and re-apply it (G8).
-    ...(mermaid ? { mermaid } : {}),
+    // Mermaid keeps its original field so scenes saved before G10 still read the same.
+    ...(source?.language === "mermaid" ? { mermaid: source.code } : source ? { diagramSource: source } : {}),
   });
+}
+
+/** Graph → laid-out, styled elements, with a dashed frame and title around each group. */
+async function graphElements(g: Graph): Promise<unknown[]> {
+  const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
+  const ids = elementIds(g);
+  const elements = convertToExcalidrawElements(graphToSkeleton(g) as Skeleton, { regenerateIds: false });
+  // Tidy routes every arrow between its bound shapes (and bends back edges); groups are laid out as nested boxes.
+  const { elements: laid, frames: groupBoxes } = compoundLayout(elements as unknown as LayoutEl[], g, ids);
+  if (!groupBoxes.length) return styleElements(laid);
+
+  const frames = groupBoxes.flatMap((f) => [
+    {
+      type: "rectangle",
+      x: f.x,
+      y: f.y,
+      width: f.width,
+      height: f.height,
+      strokeStyle: "dashed",
+      backgroundColor: "transparent",
+    },
+    { type: "text", x: f.x + 14, y: f.y + 8, text: f.label, fontSize: 16 },
+  ]);
+  const frameElements = convertToExcalidrawElements(frames as Skeleton, { regenerateIds: true });
+  // Frames first, so they sit behind what they hold.
+  return styleElements([...(frameElements as unknown as LayoutEl[]), ...laid]);
+}
+
+export async function graphToScene(g: Graph, source?: DiagramSource): Promise<string> {
+  return scene(await graphElements(g), {}, source);
 }
 
 /**
@@ -29,7 +66,7 @@ function scene(elements: unknown[], files: Record<string, unknown> = {}, mermaid
  * diagrams and some others natively; for types it can only draw as a flat image
  * (or can't parse), our own converter builds labelled shapes and arrows (G8).
  */
-export async function mermaidToScene(mermaid: string): Promise<string> {
+export async function mermaidToScene(mermaid: string, source: DiagramSource = { language: "mermaid", code: mermaid }) {
   const [{ parseMermaidToExcalidraw }, { convertToExcalidrawElements }] = await Promise.all([
     import("@excalidraw/mermaid-to-excalidraw"),
     import("@excalidraw/excalidraw"),
@@ -37,14 +74,17 @@ export async function mermaidToScene(mermaid: string): Promise<string> {
   // Class, state, ER and mind-map diagrams: mermaid-to-excalidraw 2.2 draws these
   // as a flat image (and logs errors doing so), so use our converter directly.
   const fallback = parseFallback(mermaid);
-  if (fallback) {
-    const elements = convertToExcalidrawElements(graphToSkeleton(fallback) as Skeleton, { regenerateIds: true });
-    // Tidy routes every arrow between its bound shapes (and bends back edges).
-    return scene(styleElements(tidyLayout(elements as unknown as Parameters<typeof tidyLayout>[0])), {}, mermaid);
-  }
+  if (fallback) return graphToScene(fallback, source);
   const native = await parseMermaidToExcalidraw(mermaid, { themeVariables: { fontSize: "20px" } });
   const elements = convertToExcalidrawElements(native.elements as Skeleton, { regenerateIds: true });
-  return scene(styleElements(elements), native.files ?? {}, mermaid);
+  return scene(styleElements(elements), native.files ?? {}, source);
+}
+
+/** Any supported source → scene (G10). Throws DiagramSyntaxError for source it can't read. */
+export async function sourceToScene(source: DiagramSource): Promise<string> {
+  if (source.language === "mermaid") return mermaidToScene(source.code);
+  const parsed = parseSource(source.language, source.code);
+  return "graph" in parsed ? graphToScene(parsed.graph, source) : mermaidToScene(parsed.mermaid, source);
 }
 
 export async function skeletonToScene(skeleton: unknown[]): Promise<string> {
@@ -52,12 +92,16 @@ export async function skeletonToScene(skeleton: unknown[]): Promise<string> {
   return scene(styleElements(convertToExcalidrawElements(skeleton as Skeleton, { regenerateIds: true })));
 }
 
-/** The Mermaid source a scene was drawn from, if any. */
-export function sceneMermaid(content: string): string {
+/** The source a scene was drawn from, if any. */
+export function sceneSource(content: string): DiagramSource | null {
   try {
-    const value = (JSON.parse(content) as { mermaid?: unknown }).mermaid;
-    return typeof value === "string" ? value : "";
+    const scene = JSON.parse(content) as { mermaid?: unknown; diagramSource?: { language?: unknown; code?: unknown } };
+    const d = scene.diagramSource;
+    if (d && typeof d.language === "string" && typeof d.code === "string") {
+      return { language: d.language as DiagramLanguage, code: d.code };
+    }
+    return typeof scene.mermaid === "string" ? { language: "mermaid", code: scene.mermaid } : null;
   } catch {
-    return "";
+    return null;
   }
 }

@@ -400,3 +400,32 @@ Fix (`src/lib/diagram-layout.ts`):
   - 5-class (Owner/Dog/Cat/Vet/Animal) and 4-entity ER (CUSTOMER/ORDER/LINE_ITEM/PRODUCT): no arrow crosses a shape, and no labels overlap.
   - 8-class and 7-entity stress diagrams: clean, apart from one crossing that is inherent to a left-to-right layout (Car/Truck → Vehicle/Engine).
 - README images `type-class.png` and `type-er.png` were re-shot with the previously crowded diagrams.
+
+## Stage 16 — Diagram formats beyond Mermaid (G10, 2026-09-25)
+
+Requested by the owner ("I don't want it to be just Mermaid"; chose the neutral graph format plus other diagram languages). The spec went in first: PRD Addendum B, E2E_TESTS §5 (E2E-50–52, scripts S25–S29) and `e2e/stage16.spec.ts`.
+
+- `pnpm typecheck && pnpm test`: pass, 115/115. New tests:
+  - Parsers (`src/lib/diagram-formats/formats.test.ts`, 15): graph JSON, DOT, D2 (including the README example), PlantUML (component, sequence → Mermaid, class, state, use case), comments, and line-numbered errors.
+  - Compound layout (`src/lib/diagram-compound.test.ts`, 4): no shape overlaps; every frame holds exactly its members; frames overlap only when nested; no arrow passes through a shape it doesn't connect; a cross-group label sits outside the frames it crosses.
+  - Layout direction (1), mock scripts S25–S29 against the tool schema (6), and `create_diagram` input and its syntax errors reaching the model as a ToolError (2).
+- `pnpm format:check`: pass.
+- `docker compose up -d --build`, then `BASE_URL=http://127.0.0.1:3000 pnpm test:e2e`: **52/52 pass** (49 earlier plus E2E-50/51/52). Stage 16 was run against the Compose stack, not `pnpm dev`, because the container holds port 3000.
+- MCP walkthrough against the container:
+  - E2E-50 (graph with a Backend frame): pass.
+  - E2E-51 (DOT pipeline with a diamond, PlantUML components, D2 with an AWS frame, PlantUML sequence): pass.
+  - E2E-52: the source panel shows `dot` and the original source; a DOT error shows `line 2: expected a name but found ";"` and adds no version. Pass.
+  - Stress diagrams: a 3-level nested D2 (Cloud › Edge/App tier/Data) and a top-down DOT with two clusters.
+
+Defects found by screenshot review and fixed before commit:
+1. The initial view didn't fit large diagrams. They now zoom out on first load (small ones stay at 100%); the check waits for the scene to arrive.
+2. A D2 edge label sat on a group frame's border.
+3. Nested D2 frames overlapped and covered unrelated shapes. Fixed by replacing "keep groups together per column" with a compound layout.
+4. Arrows leaving a group cut across its other shapes. Fixed with ports.
+5. A cross-group label landed on the frame edge. It now sits at an explicit midpoint between the frames.
+6. An internal route bent outside its group's frame. Frames now include their routes, and the frames drawn come from the layout itself (`groupFrames` removed).
+
+Known limits:
+- DOT, PlantUML and D2 are subsets (docs/DECISIONS.md #23). PlantUML activity diagrams are rejected with a message.
+- Arrows between groups can still cross each other in the gaps.
+- The real model is untested (no key).

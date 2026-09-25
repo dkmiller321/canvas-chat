@@ -3,7 +3,7 @@
 import { getToolName, isToolUIPart, type UIMessage } from "ai";
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { ArtifactDto, ArtifactSummary, VersionDto } from "@/lib/artifacts";
-import { mermaidToScene, skeletonToScene } from "@/lib/diagram-client";
+import { type DiagramSource, mermaidToScene, skeletonToScene, sourceToScene } from "@/lib/diagram-client";
 import type { CreateCodeOutput, CreateDiagramOutput, CreateDocumentOutput, EditOutput } from "@/lib/tools";
 
 const AUTOSAVE_MS = 800;
@@ -75,14 +75,16 @@ export function useCanvas({
 
   const converting = useRef(new Set<string>());
 
-  /** Save version 1 of a diagram from its Mermaid or skeleton source (docs/DECISIONS.md #2). */
+  /** Save version 1 of a diagram from its Mermaid, graph, DOT/PlantUML/D2 or skeleton source (docs/DECISIONS.md #2). */
   const convertDiagram = useCallback(async (source: CreateDiagramOutput) => {
     if (converting.current.has(source.artifactId)) return;
     converting.current.add(source.artifactId);
     try {
-      const content = source.mermaid
-        ? await mermaidToScene(source.mermaid)
-        : await skeletonToScene(source.elements ?? []);
+      const content = source.source
+        ? await sourceToScene(source.source)
+        : source.mermaid
+          ? await mermaidToScene(source.mermaid)
+          : await skeletonToScene(source.elements ?? []);
       const res = await fetch(`/api/artifacts/${source.artifactId}/versions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -387,14 +389,14 @@ export function useCanvas({
     [flush, load],
   );
 
-  /** Redraw the open diagram from edited Mermaid source (G8); saved as a user version. */
-  const applyMermaid = useCallback(
-    async (mermaid: string): Promise<string | null> => {
+  /** Redraw the open diagram from edited source in any supported language (G8, G10); saved as a user version. */
+  const applySource = useCallback(
+    async (source: DiagramSource): Promise<string | null> => {
       const current = docRef.current;
       if (!current?.artifact.currentVersion) return "Nothing to apply to.";
       await flush();
       try {
-        const content = await mermaidToScene(mermaid);
+        const content = await sourceToScene(source);
         await fetchJson<VersionDto>(`/api/artifacts/${current.artifact.id}/versions`, {
           method: "POST",
           headers: { "content-type": "application/json" },
@@ -577,7 +579,7 @@ export function useCanvas({
     reloadOpen,
     setLanguage,
     rewriteDiagram,
-    applyMermaid,
+    applySource,
     importScene,
   };
 }

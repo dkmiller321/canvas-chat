@@ -55,7 +55,23 @@ function contains(outer: Box, inner: Box) {
   );
 }
 
-export function tidyLayout<T extends El>(elements: T[]): T[] {
+export type LayoutOptions = {
+  /** "down" lays the flow out top to bottom (G10). */
+  direction?: "right" | "down";
+};
+
+export function tidyLayout<T extends El>(elements: T[], { direction = "right" }: LayoutOptions = {}): T[] {
+  if (direction === "right") return layoutRight(elements);
+  // Top to bottom is the same layout with x and y swapped.
+  return layoutRight(elements.map(transpose)).map(transpose);
+}
+
+function transpose<T extends El>(e: T): T {
+  const points = Array.isArray(e.points) ? (e.points as [number, number][]).map(([x, y]) => [y, x]) : undefined;
+  return { ...e, x: e.y, y: e.x, width: e.height, height: e.width, ...(points ? { points } : {}) };
+}
+
+function layoutRight<T extends El>(elements: T[]): T[] {
   const live = elements.filter((e) => !e.isDeleted);
   const allShapes = live.filter((e) => SHAPES.has(e.type));
   const frames = new Set(allShapes.filter((s) => allShapes.some((o) => o !== s && contains(s, o))).map((s) => s.id));

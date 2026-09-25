@@ -15,7 +15,7 @@
 
 - **Three canvases in one chat:** documents (Tiptap), code (CodeMirror) and diagrams (Excalidraw), opened as tabs next to the conversation.
 - **The AI makes targeted edits, and you can review them:** it changes only the part you asked about, every change becomes a version, and you can diff, restore or branch any version.
-- **Diagrams stay editable:** flowcharts, sequence, class, state, ER and mind-map diagrams become real Excalidraw shapes, not flat images.
+- **Diagrams stay editable, in the format you like:** Mermaid, a plain JSON graph, Graphviz DOT, PlantUML or D2 all become real Excalidraw shapes, not flat images. Nested containers become frames.
 - **Runs on your machine:** one `docker compose up`, with Postgres for storage. It works with any [OpenRouter](https://openrouter.ai) model, or with a built-in mock model that needs no API key.
 
 ---
@@ -47,10 +47,12 @@ mindmap
     Diagrams
       Full Excalidraw editor
       Six Mermaid diagram types
+      Graph JSON, DOT, PlantUML, D2
+      Nested groups as frames
       Ask AI about a selection
       Style presets
       Tidy-up layout
-      Mermaid source edit
+      Source edit in any format
       Import and shape library
     Versions
       History of every edit
@@ -78,7 +80,8 @@ mindmap
 | | AI draws flowchart, sequence, class, state, ER and mind-map diagrams as editable shapes | ✅ |
 | | Select shapes and **Ask AI** to recolour, relabel or extend them | ✅ |
 | | Style presets (Colourful, Monochrome, Clean, Sketchy) and one-click tidy-up layout | ✅ |
-| | View and edit the Mermaid source, then redraw it | ✅ |
+| | **Beyond Mermaid:** a JSON graph (nodes, edges, nested groups), Graphviz DOT, PlantUML and D2, with automatic layout and group frames | ✅ |
+| | View and edit the source in any of these formats, then redraw it; syntax errors point to the line | ✅ |
 | | `.excalidraw` import and a persisted shape library | ✅ |
 | **Versions** | Every AI or user change is a version: step through them, diff against the previous version, restore, or branch into a new artifact | ✅ |
 | **Export** | Documents: Markdown, PDF, DOCX (with diagrams rendered in). Code: source file. Diagrams: PNG (optionally transparent), SVG (optionally dark), `.excalidraw` | ✅ |
@@ -126,7 +129,7 @@ mindmap
   </tr>
   <tr>
     <td><b>Style presets and tidy-up.</b> Restyle the whole diagram in one click, or re-lay it out neatly.</td>
-    <td><b>Mermaid in, shapes out.</b> Read or edit the Mermaid source and redraw it as a new version.</td>
+    <td><b>Source in, shapes out.</b> Read or edit the source (Mermaid, graph, DOT, PlantUML or D2) and redraw it as a new version.</td>
   </tr>
 </table>
 
@@ -137,6 +140,36 @@ mindmap
 | ![Sequence diagram](docs/images/type-sequence.png) | ![Class diagram](docs/images/type-class.png) | ![State diagram](docs/images/type-state.png) |
 | **ER** | **Mind map** | **Flowchart** |
 | ![ER diagram with cardinality labels](docs/images/type-er.png) | ![Mind map](docs/images/type-mindmap.png) | See above ↑ |
+
+### Beyond Mermaid
+
+The AI (or you, in the source panel) can also write a **JSON graph**, **Graphviz DOT**, **PlantUML** or **D2**. Each group is laid out on its own and then placed as one box in its parent, so frames never overlap and arrows leave a group through a clear lane.
+
+![A D2 diagram with nested containers Cloud, Edge, App tier and Data, laid out left to right](docs/images/format-d2.png)
+
+<table>
+  <tr>
+    <td width="50%"><img src="docs/images/format-graph.png" alt="A JSON graph: Web calling API, Worker and Database inside a Backend frame"></td>
+    <td width="50%"><img src="docs/images/format-source-panel.png" alt="The diagram source panel set to Graphviz DOT, showing a line-numbered syntax error"></td>
+  </tr>
+  <tr>
+    <td><b>JSON graph.</b> Nodes, edges and groups; the app does the layout. The AI uses this for architecture diagrams.</td>
+    <td><b>Pick a language, see errors by line.</b> Bad source never replaces your drawing.</td>
+  </tr>
+</table>
+
+```d2
+direction: right
+users: Users { shape: person }
+cloud: Cloud {
+  app: App tier { api: API; jobs: Workers }
+  data: Data { pg: Postgres; redis: Redis }
+}
+users -> cloud.app.api: HTTPS
+cloud.app.api -> cloud.data.pg: SQL
+```
+
+Supported syntax for each language is listed in [`docs/DECISIONS.md`](docs/DECISIONS.md) (#23).
 
 ### Code and dark mode
 
@@ -214,7 +247,7 @@ flowchart LR
 
 - **The model works through tools:** `create_document`, `edit_document`, `rewrite_selection`, `create_code`, `create_diagram` and `update_diagram`. Document edits are find/replace operations rather than full rewrites, so unchanged text stays untouched.
 - **Everything is versioned.** Every change by the AI or the user is stored as an immutable artifact version in Postgres. Diffs, restore and branching are built on that history.
-- **Diagrams are converted in the browser.** Mermaid becomes Excalidraw shapes through `mermaid-to-excalidraw`, plus a custom converter for class, state, ER and mind-map diagrams. Layout and style presets are applied afterwards.
+- **Diagrams are converted in the browser.** Mermaid becomes Excalidraw shapes through `mermaid-to-excalidraw`. Everything else (Mermaid class, state, ER and mind-map diagrams, JSON graphs, DOT, PlantUML and D2) is parsed into one neutral graph by our own parsers, then laid out as a compound graph and styled. PlantUML sequence diagrams are translated to Mermaid. DOT, PlantUML and D2 are also parsed on the server, so the model gets line-numbered syntax errors back.
 - **Exports render on the server.** PDF uses headless Chromium, DOCX uses the `docx` library, and diagram embeds are rendered into both.
 
 | Layer | Tech |
@@ -224,7 +257,7 @@ flowchart LR
 | Editors | Tiptap v3, CodeMirror 6, Excalidraw 0.18 |
 | AI | Vercel AI SDK, OpenRouter provider, scripted mock model |
 | Data | Postgres 16, Drizzle ORM |
-| Tests | Vitest (84 unit tests), Playwright (49 E2E specs) |
+| Tests | Vitest (115 unit tests), Playwright (52 E2E specs) |
 
 ---
 

@@ -33,6 +33,32 @@ export const FIB_CODE =
 export const LOGIN_MERMAID = "flowchart LR\n  A[User] --> B[Login]\n  B --> C[Dashboard]";
 
 const diagram = (title: string, mermaid: string) => () => tool(TOOL_NAMES.createDiagram, { title, mermaid });
+const source = (title: string, language: "dot" | "plantuml" | "d2", code: string) => () =>
+  tool(TOOL_NAMES.createDiagram, { title, source: { language, code } });
+
+export const ARCH_GRAPH = {
+  direction: "right",
+  groups: [{ id: "backend", label: "Backend" }],
+  nodes: [
+    { id: "web", label: "Web" },
+    { id: "api", label: "API", group: "backend" },
+    { id: "worker", label: "Worker", group: "backend" },
+    { id: "db", label: "Database", shape: "ellipse", group: "backend" },
+  ],
+  edges: [
+    { from: "web", to: "api", label: "HTTPS" },
+    { from: "api", to: "db", label: "SQL" },
+    { from: "api", to: "worker", label: "jobs", dashed: true },
+    { from: "worker", to: "db" },
+  ],
+};
+export const PIPELINE_DOT =
+  'digraph G {\n  rankdir=LR;\n  build [label="Build"];\n  test [label="Test"];\n  deploy [label="Deploy", shape=diamond];\n  build -> test -> deploy;\n}';
+export const SHOP_PLANTUML =
+  '@startuml\nactor User\n[Web App] as web\ndatabase "Orders DB" as db\nUser --> web : browses\nweb --> db : reads\n@enduml';
+export const CLOUD_D2 =
+  "direction: down\naws: AWS {\n  lb: Load balancer\n  app: App\n  lb -> app\n}\nusers: Users\nusers -> aws.lb: HTTPS";
+export const HANDSHAKE_PLANTUML = "@startuml\nAlice -> Bob : Hello\nBob --> Alice : Hi\n@enduml";
 
 type ChatScript = { trigger: string; run: (r: MockRequest) => MockStep; followUp?: string };
 
@@ -136,6 +162,15 @@ const CHAT_SCRIPTS: ChatScript[] = [
     trigger: "draw a mind map",
     run: diagram("Coffee Map", "mindmap\n  root((Coffee))\n    Beans\n    Brewing\n    Serving"),
   },
+  // G10: formats beyond Mermaid (docs/E2E_TESTS.md §5.2).
+  {
+    trigger: "draw an architecture graph",
+    run: () => tool(TOOL_NAMES.createDiagram, { title: "Architecture", graph: ARCH_GRAPH }),
+  },
+  { trigger: "draw a dot graph", run: source("Pipeline", "dot", PIPELINE_DOT) },
+  { trigger: "draw a plantuml sequence", run: source("Handshake", "plantuml", HANDSHAKE_PLANTUML) },
+  { trigger: "draw a plantuml diagram", run: source("Shop", "plantuml", SHOP_PLANTUML) },
+  { trigger: "draw a d2 diagram", run: source("Cloud", "d2", CLOUD_D2) },
 ];
 
 function planRewrite(r: MockRequest): MockStep {

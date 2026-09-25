@@ -19,6 +19,11 @@ export type SceneElement = {
   text?: string;
   containerId?: string | null;
   label?: { text: string };
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  strokeStyle?: string;
 };
 
 export async function resetDb({ request }: { request: APIRequestContext }) {

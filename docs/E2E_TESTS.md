@@ -305,3 +305,33 @@ New API: `GET /api/artifacts/:id` also returns `language` (code only); `GET/PUT 
 **E2E-47 @stage15 library persists (G9).** Create the S11 diagram. Add one library item through `window.__excalidrawAPI.updateLibrary`. Within 3 s `GET /api/library` returns one item. After a reload it still returns one item.
 
 **E2E-48 @stage15 transparent and dark exports (G9).** Create the S11 diagram. `export-png-transparent` downloads a PNG whose top-left pixel has alpha 0. `export-svg-dark` downloads an SVG that contains `invert`.
+
+## 5. Addendum B — v1.2 stage 16 (diagram formats)
+
+### 5.1 Selectors
+
+| testid | Element |
+|---|---|
+| `source-language` | Language select in the diagram source panel: `mermaid`, `graph`, `dot`, `plantuml`, `d2` |
+
+The panel keeps `diagram-source` / `mermaid-source` / `mermaid-apply` (renamed on screen to "Diagram source"; the ids are a contract).
+
+### 5.2 Mock scripts
+
+| Script | Trigger (contains) | Mock output |
+|---|---|---|
+| S25 graph | `draw an architecture graph` | `create_diagram` titled `Architecture` with `graph`: direction `right`; group `backend` labelled `Backend`; nodes `web` (`Web`), `api` (`API`, backend), `worker` (`Worker`, backend), `db` (`Database`, ellipse, backend); edges web→api `HTTPS`, api→db `SQL`, api→worker `jobs` (dashed), worker→db |
+| S26 DOT | `draw a dot graph` | `create_diagram` titled `Pipeline`, source `dot`: `digraph G {\n  rankdir=LR;\n  build [label="Build"];\n  test [label="Test"];\n  deploy [label="Deploy", shape=diamond];\n  build -> test -> deploy;\n}` |
+| S27 PlantUML | `draw a plantuml diagram` | `create_diagram` titled `Shop`, source `plantuml`: `@startuml\nactor User\n[Web App] as web\ndatabase "Orders DB" as db\nUser --> web : browses\nweb --> db : reads\n@enduml` |
+| S28 D2 | `draw a d2 diagram` | `create_diagram` titled `Cloud`, source `d2`: `direction: down\naws: AWS {\n  lb: Load balancer\n  app: App\n  lb -> app\n}\nusers: Users\nusers -> aws.lb: HTTPS` |
+| S29 PlantUML sequence | `draw a plantuml sequence` | `create_diagram` titled `Handshake`, source `plantuml`: `@startuml\nAlice -> Bob : Hello\nBob --> Alice : Hi\n@enduml` |
+
+### 5.3 Scenarios
+
+**Stage 16 — Diagram formats**
+
+**E2E-50 @stage16 neutral graph (G10).** Send S25. Version 1 has no `image` elements. Its labels include `Web`, `API`, `Worker`, `Database`, `HTTPS`, `SQL`, `jobs` and `Backend`. There are 4 arrows, and one has `strokeStyle` `dashed`. A rectangle labelled by the `Backend` text encloses the API, Worker and Database shapes, but not Web.
+
+**E2E-51 @stage16 DOT, PlantUML and D2 (G10).** For each of S26–S29, in a fresh chat, version 1 has no `image` elements and its labels include, respectively: `Build`, `Test`, `Deploy` (Deploy is a `diamond`; 2 arrows); `User`, `Web App`, `Orders DB`, `browses`, `reads` (2 arrows); `AWS`, `Load balancer`, `App`, `Users`, `HTTPS` (with direction down, Load balancer is above App); `Alice`, `Bob`, `Hello`, `Hi`.
+
+**E2E-52 @stage16 source panel in other languages (G10).** Send S26. Click `diagram-source`: `source-language` is `dot` and `mermaid-source` contains `deploy [label="Deploy", shape=diamond];`. Replace `Deploy` with `Release` and click `mermaid-apply`: a new version by `user` has labels including `Release` and not `Deploy`. Select `d2` in `source-language`, fill `mermaid-source` with `a: Alpha\nb: Beta\na -> b`, and click `mermaid-apply`: a new version by `user` has labels including `Alpha` and `Beta`. Fill it with `a -> {` and apply: an error containing `line 1` shows in the panel and no version is added.

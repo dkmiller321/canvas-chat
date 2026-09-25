@@ -57,6 +57,7 @@ type Props = {
 
 type StoredScene = {
   mermaid?: unknown;
+  diagramSource?: unknown;
   elements?: unknown[];
   appState?: { viewBackgroundColor?: string };
   files?: Record<string, unknown>;
@@ -72,7 +73,11 @@ function parse(content: string) {
     elements,
     files: scene.files ?? {},
     background: scene.appState?.viewBackgroundColor ?? "#ffffff",
-    mermaid: typeof scene.mermaid === "string" ? scene.mermaid : undefined,
+    // The source it was drawn from (G8, G10) travels with the scene.
+    source: {
+      ...(typeof scene.mermaid === "string" ? { mermaid: scene.mermaid } : {}),
+      ...(scene.diagramSource ? { diagramSource: scene.diagramSource } : {}),
+    },
   };
 }
 
@@ -153,24 +158,49 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   }, [api, testHook]);
   const dark = useDarkTheme();
   const initial = useMemo(() => parse(content), []); // eslint-disable-line react-hooks/exhaustive-deps -- first load only
-  // Mermaid source travels with the scene so the source panel can show it after manual edits.
-  const mermaidRef = useRef(initial.mermaid);
+  // The diagram's source travels with the scene so the source panel can show it after manual edits.
+  const sourceRef = useRef(initial.source);
   // Version hash of what was last loaded or saved; onChange with a different hash is a user edit.
   const savedHash = useRef(hashElementsVersion(initial.elements as Elements));
   const onUserChangeRef = useRef(onUserChange);
   onUserChangeRef.current = onUserChange;
+
+  // First load: a drawing larger than the canvas is zoomed out to fit (small ones stay at 100%).
+  useEffect(() => {
+    if (!api) return;
+    // The initial scene arrives a few frames after the API does.
+    let frame = 0;
+    let tries = 0;
+    const check = () => {
+      const els = api.getSceneElements();
+      const { width, height } = api.getAppState();
+      if (!els.length || !width) {
+        if (++tries < 60) frame = requestAnimationFrame(check);
+        return;
+      }
+      const x0 = Math.min(...els.map((e) => e.x));
+      const y0 = Math.min(...els.map((e) => e.y));
+      const x1 = Math.max(...els.map((e) => e.x + e.width));
+      const y1 = Math.max(...els.map((e) => e.y + e.height));
+      if (x1 - x0 > width * 0.9 || y1 - y0 > height * 0.9) {
+        api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9 });
+      }
+    };
+    frame = requestAnimationFrame(check);
+    return () => cancelAnimationFrame(frame);
+  }, [api]);
 
   const shownKey = useRef(contentKey);
   useEffect(() => {
     if (!api || shownKey.current === contentKey) return;
     shownKey.current = contentKey;
     const next = parse(content);
-    mermaidRef.current = next.mermaid;
+    sourceRef.current = next.source;
     savedHash.current = hashElementsVersion(next.elements as Elements);
     const before = new Set(api.getSceneElements().map((e) => e.id));
     const kept = next.elements.filter((e) => before.has(e.id)).length;
     api.updateScene({ elements: next.elements, captureUpdate: CaptureUpdateAction.NEVER });
-    // A redraw (new Mermaid source, import) replaces most elements: bring it into view.
+    // A redraw (new source, import) replaces most elements: bring it into view.
     if (kept < next.elements.length / 2)
       api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9 });
   }, [api, content, contentKey]);
@@ -184,7 +214,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
       elements: getNonDeletedElements(api.getSceneElements()),
       appState: { viewBackgroundColor: api.getAppState().viewBackgroundColor },
       files: api.getFiles(),
-      ...(mermaidRef.current ? { mermaid: mermaidRef.current } : {}),
+      ...sourceRef.current,
     });
   };
 

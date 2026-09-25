@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { graphInput } from "@/lib/diagram-formats/graph";
 
 /** Input schemas for the agent tools. Shared by the tool definitions, the mock model and the unit tests. */
 
@@ -51,12 +52,28 @@ export type SkeletonElement = z.infer<typeof skeletonElement>;
 export const createDiagramInput = z
   .object({
     title: z.string().min(1).describe("Short diagram title"),
-    mermaid: z.string().optional().describe("Mermaid source (preferred for flowcharts, sequences and similar)"),
+    mermaid: z
+      .string()
+      .optional()
+      .describe("Mermaid source: flowcharts, sequence, class, state and ER diagrams, mind maps"),
+    graph: graphInput
+      .optional()
+      .describe("Nodes, edges and groups laid out automatically: architecture and system diagrams, org charts"),
+    source: z
+      .object({
+        language: z.enum(["dot", "plantuml", "d2"]),
+        code: z.string().min(1),
+      })
+      .optional()
+      .describe("Graphviz DOT, PlantUML or D2 source, when the user asks for that language or provides it"),
     elements: z.array(skeletonElement).optional().describe("Excalidraw element skeletons, for freeform sketches only"),
   })
-  .refine((v) => Boolean(v.mermaid) !== Boolean(v.elements?.length), {
-    message: "Provide exactly one of mermaid or elements",
-  });
+  .refine(
+    (v) =>
+      [Boolean(v.mermaid), Boolean(v.graph), Boolean(v.source), Boolean(v.elements?.length)].filter(Boolean).length ===
+      1,
+    { message: "Provide exactly one of mermaid, graph, source or elements" },
+  );
 
 const color = z.string().describe("CSS colour, e.g. #1e1e1e");
 const shapeType = z.enum(["rectangle", "ellipse", "diamond", "text", "arrow"]);

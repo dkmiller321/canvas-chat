@@ -1,6 +1,8 @@
 import { tool } from "ai";
 import { addVersion, createArtifact, getArtifact, type ArtifactDto, type ArtifactKind } from "@/lib/artifacts";
 import { normalizeLanguage } from "@/lib/code-languages";
+import { DiagramSyntaxError, parseSource } from "@/lib/diagram-formats";
+import { normalizeGraph } from "@/lib/diagram-formats/graph";
 import { applyDiagramOps } from "./diagram";
 import { ToolError, applyEdits, rewriteSelection } from "./document";
 import { parseScene } from "./scene";
@@ -22,8 +24,35 @@ export type CreateDiagramOutput = {
   artifactId: string;
   title: string;
   mermaid?: string;
+  /** Graph JSON or DOT/PlantUML/D2 source (G10), already checked; the browser draws it. */
+  source?: { language: "graph" | "dot" | "plantuml" | "d2"; code: string };
   elements?: unknown[];
 };
+
+/** Validate and convert the diagram input before an artifact exists, so bad source fails with a readable error. */
+export function diagramContent(input: {
+  mermaid?: string;
+  graph?: Parameters<typeof normalizeGraph>[0];
+  source?: { language: "dot" | "plantuml" | "d2"; code: string };
+  elements?: unknown[];
+}): Omit<CreateDiagramOutput, "artifactId" | "title"> {
+  try {
+    if (input.mermaid) return { mermaid: input.mermaid };
+    if (input.graph) {
+      normalizeGraph(input.graph);
+      return { source: { language: "graph", code: JSON.stringify(input.graph, null, 2) } };
+    }
+    if (input.source) {
+      parseSource(input.source.language, input.source.code);
+      return { source: input.source };
+    }
+    return { elements: input.elements };
+  } catch (e) {
+    if (e instanceof DiagramSyntaxError)
+      throw new ToolError(`Could not read the diagram: ${e.message}. Fix it and call create_diagram again.`);
+    throw e;
+  }
+}
 
 async function loadOwned(conversationId: string, artifactId: string, kinds: ArtifactKind[]): Promise<ArtifactDto> {
   const artifact = await getArtifact(artifactId);
@@ -87,12 +116,19 @@ export function chatTools(conversationId: string) {
 
     create_diagram: tool({
       description:
-        "Create a diagram artifact from Mermaid source (preferred) or from Excalidraw element skeletons. It is converted into an editable Excalidraw drawing.",
+        "Create a diagram artifact from exactly one of: Mermaid source, a graph (nodes, edges, groups), Graphviz DOT/PlantUML/D2 source, or Excalidraw element skeletons. It is converted into an editable Excalidraw drawing.",
       inputSchema: createDiagramInput,
-      execute: async ({ title, mermaid, elements }): Promise<CreateDiagramOutput> => {
+      execute: async (input): Promise<CreateDiagramOutput> => {
+        const content = diagramContent(input);
         // Version 1 is saved by the browser after converting (docs/DECISIONS.md #2).
-        const { id } = await createArtifact({ conversationId, kind: "diagram", title, content: null, author: "ai" });
-        return { artifactId: id, title, ...(mermaid ? { mermaid } : { elements }) };
+        const { id } = await createArtifact({
+          conversationId,
+          kind: "diagram",
+          title: input.title,
+          content: null,
+          author: "ai",
+        });
+        return { artifactId: id, title: input.title, ...content };
       },
     }),
 

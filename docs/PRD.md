@@ -282,3 +282,17 @@ New requirements:
 | G9 | Import `.excalidraw`, persisted library, transparent/dark export | P2 |
 
 D8 (code artifacts), E4 (embed a diagram) and G6 (selection-scoped diagram requests) move from P2 into this addendum. D7 (custom quick actions) stays P2.
+
+## Addendum B — v1.2 diagram formats (Sep 25, 2026)
+
+Requested by the owner: "I don't want it to be just Mermaid." Diagrams can now be written in a neutral graph format and in three more diagram languages. Every format becomes the same editable Excalidraw shapes. New scenarios are E2E-50 onward in `docs/E2E_TESTS.md` §5.
+
+| Stage | Scope | Done when |
+| --- | --- | --- |
+| 16. Diagram formats (G10) | `create_diagram` accepts a neutral **graph** (nodes, edges, groups, direction) and **source** in Graphviz DOT, PlantUML or D2, as well as Mermaid and element skeletons. The source panel edits any of these languages and redraws from it. | Each format becomes editable shapes with its labels, and groups become frames around their members |
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| G10 | Diagrams from a neutral graph, Graphviz DOT, PlantUML and D2, with the source viewable and editable | P1 |
+
+Supported language subsets are listed in `docs/DECISIONS.md` #23. Unsupported syntax fails with a line-numbered error that the model sees and can correct.

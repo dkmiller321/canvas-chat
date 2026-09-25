@@ -5,30 +5,9 @@
  * shapes and bound arrows) that the editor converts into real elements.
  */
 
-export type GraphNode = { id: string; label: string; shape: "rectangle" | "ellipse" | "diamond"; small?: boolean };
-export type GraphEdge = { from: string; to: string; label?: string };
-export type Graph = { kind: "class" | "state" | "er" | "mindmap"; nodes: GraphNode[]; edges: GraphEdge[] };
+import { type Graph, type GraphNode, graphToSkeleton } from "@/lib/diagram-formats/graph";
 
-export type Skeleton =
-  | {
-      type: "rectangle" | "ellipse" | "diamond";
-      id: string;
-      x: number;
-      y: number;
-      width: number;
-      height: number;
-      label?: { text: string };
-      backgroundColor?: string;
-    }
-  | {
-      type: "arrow";
-      x: number;
-      y: number;
-      start: { id: string };
-      end: { id: string };
-      label?: { text: string };
-      endArrowhead?: "arrow" | null;
-    };
+export { graphToSkeleton };
 
 const lines = (src: string) =>
   src
@@ -46,7 +25,7 @@ function addNode(graph: Graph, id: string, init: Partial<GraphNode> = {}) {
 }
 
 function parseClass(src: string): Graph {
-  const g: Graph = { kind: "class", nodes: [], edges: [] };
+  const g: Graph = { nodes: [], edges: [] };
   const members = new Map<string, string[]>();
   let open: string | null = null;
   for (const raw of lines(src).slice(1)) {
@@ -89,7 +68,7 @@ function parseClass(src: string): Graph {
 }
 
 function parseState(src: string): Graph {
-  const g: Graph = { kind: "state", nodes: [], edges: [] };
+  const g: Graph = { nodes: [], edges: [] };
   let starts = 0;
   let ends = 0;
   const endpoint = (name: string, asTarget: boolean) => {
@@ -131,7 +110,7 @@ function cardinality(op: string): string {
 }
 
 function parseEr(src: string): Graph {
-  const g: Graph = { kind: "er", nodes: [], edges: [] };
+  const g: Graph = { nodes: [], edges: [] };
   const attrs = new Map<string, string[]>();
   let open: string | null = null;
   for (const raw of lines(src).slice(1)) {
@@ -151,7 +130,7 @@ function parseEr(src: string): Graph {
     if (rel) {
       addNode(g, rel[1]!);
       addNode(g, rel[3]!);
-      g.edges.push({ from: rel[1]!, to: rel[3]!, label: `${rel[4]} (${cardinality(rel[2]!)})` });
+      g.edges.push({ from: rel[1]!, to: rel[3]!, label: `${rel[4]} (${cardinality(rel[2]!)})`, arrow: "none" });
     }
   }
   for (const n of g.nodes) {
@@ -162,7 +141,7 @@ function parseEr(src: string): Graph {
 }
 
 function parseMindmap(src: string): Graph {
-  const g: Graph = { kind: "mindmap", nodes: [], edges: [] };
+  const g: Graph = { nodes: [], edges: [] };
   const stack: { indent: number; id: string }[] = [];
   let n = 0;
   for (const raw of lines(src).slice(1)) {
@@ -179,7 +158,7 @@ function parseMindmap(src: string): Graph {
     while (stack.length && stack.at(-1)!.indent >= indent) stack.pop();
     const parent = stack.at(-1);
     addNode(g, id, { label: text, shape: parent ? "rectangle" : m ? shape : "ellipse" });
-    if (parent) g.edges.push({ from: parent.id, to: id });
+    if (parent) g.edges.push({ from: parent.id, to: id, arrow: "none" });
     stack.push({ indent, id });
   }
   return g;
@@ -205,84 +184,4 @@ export function parseFallback(src: string): Graph | null {
     default:
       return null;
   }
-}
-
-const FONT = 20;
-const CHAR = FONT * 0.55;
-const LINE = FONT * 1.35;
-
-function size(node: GraphNode) {
-  if (node.small) return { width: 36, height: 36 };
-  const rows = node.label.split("\n");
-  const width = Math.max(120, Math.max(...rows.map((r) => r.length)) * CHAR + 48);
-  const height = Math.max(60, rows.length * LINE + 28);
-  return node.shape === "ellipse" ? { width: width * 1.2, height: height * 1.2 } : { width, height };
-}
-
-/** Left-to-right layered positions (mind maps: a tree fanning out to the right). */
-function positions(g: Graph): Map<string, { x: number; y: number; width: number; height: number }> {
-  const out = new Map<string, { x: number; y: number; width: number; height: number }>();
-  const sizes = new Map(g.nodes.map((n) => [n.id, size(n)]));
-  const children = new Map<string, string[]>();
-  const indeg = new Map(g.nodes.map((n) => [n.id, 0]));
-  for (const e of g.edges) {
-    children.set(e.from, [...(children.get(e.from) ?? []), e.to]);
-    indeg.set(e.to, (indeg.get(e.to) ?? 0) + 1);
-  }
-  const rank = new Map<string, number>();
-  const seen = new Set<string>();
-  const visit = (id: string, r: number) => {
-    if (seen.has(id) || (rank.get(id) ?? -1) >= r) return;
-    rank.set(id, r);
-    seen.add(id);
-    for (const c of children.get(id) ?? []) visit(c, r + 1);
-    seen.delete(id);
-  };
-  for (const n of g.nodes) if ((indeg.get(n.id) ?? 0) === 0) visit(n.id, 0);
-  for (const n of g.nodes) if (!rank.has(n.id)) visit(n.id, 0);
-
-  const columns: string[][] = [];
-  for (const n of g.nodes) (columns[rank.get(n.id)!] ??= []).push(n.id);
-  const gapX = g.kind === "mindmap" ? 90 : 120;
-  const gapY = 50;
-  let x = 0;
-  for (const col of columns) {
-    if (!col) continue;
-    const w = Math.max(...col.map((id) => sizes.get(id)!.width));
-    const h = col.reduce((s, id) => s + sizes.get(id)!.height, 0) + gapY * (col.length - 1);
-    let y = -h / 2;
-    for (const id of col) {
-      const s = sizes.get(id)!;
-      out.set(id, { x: x + (w - s.width) / 2, y, ...s });
-      y += s.height + gapY;
-    }
-    x += w + gapX;
-  }
-  return out;
-}
-
-export function graphToSkeleton(g: Graph): Skeleton[] {
-  const pos = positions(g);
-  const shapes: Skeleton[] = g.nodes.map((n) => {
-    const p = pos.get(n.id)!;
-    return {
-      type: n.shape,
-      id: n.id,
-      ...p,
-      ...(n.small ? { backgroundColor: "#1e1e1e" } : { label: { text: n.label } }),
-    };
-  });
-  const arrows: Skeleton[] = g.edges.map((e) => {
-    const a = pos.get(e.from)!;
-    return {
-      type: "arrow",
-      x: a.x + a.width,
-      y: a.y + a.height / 2,
-      start: { id: e.from },
-      end: { id: e.to },
-      ...(e.label ? { label: { text: e.label } } : {}),
-      endArrowhead: g.kind === "er" || g.kind === "mindmap" ? null : "arrow",
-    };
-  });
-  return [...shapes, ...arrows];
 }

@@ -197,6 +197,20 @@ describe("crowded graphs", () => {
   });
 });
 
+describe("layout options (G10)", () => {
+  it("lays out top to bottom when asked, keeping labels with their shapes", () => {
+    const out = tidyLayout(messy(), { direction: "down" });
+    const s = Object.fromEntries(out.map((e) => [e.id, e]));
+    expect(s.user!.y).toBeLessThan(s.login!.y);
+    expect(s.login!.y).toBeLessThan(s.dash!.y);
+    expect(s.dash!.y).toBe(s.cache!.y);
+    expect(s["login-t"]!.x - s.login!.x).toBe(30);
+    expect(s["login-t"]!.y - s.login!.y).toBe(18);
+    const list = shapes(out);
+    for (const a of list) for (const b of list) if (a.id < b.id) expect(overlap(a, b), `${a.id}/${b.id}`).toBe(false);
+  });
+});
+
 describe("styleElements", () => {
   it("treats Mermaid's grey fills as unset and colours repeated labels the same", async () => {
     const { styleElements } = await import("./diagram-style");

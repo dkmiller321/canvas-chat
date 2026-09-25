@@ -33,6 +33,8 @@ export type Scene = {
   files?: Record<string, unknown>;
   /** Mermaid source the diagram was drawn from, kept for the source panel (G8). */
   mermaid?: string;
+  /** Other source (graph JSON, DOT, PlantUML, D2) it was drawn from (G10). */
+  diagramSource?: { language: string; code: string };
 };
 
 export function parseScene(content: string): Scene {

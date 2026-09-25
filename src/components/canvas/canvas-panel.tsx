@@ -47,7 +47,7 @@ import { Markdown } from "@/components/chat/markdown";
 import { DiffView } from "./diff-view";
 import { DocumentEditor, type DocumentEditorHandle } from "./document-editor";
 import type { DiagramEditorHandle } from "./diagram-editor";
-import { MermaidSourcePanel } from "./mermaid-source-panel";
+import { DiagramSourcePanel } from "./diagram-source-panel";
 import type { Canvas } from "./use-canvas";
 
 // CodeMirror and its language packs load only when a code artifact opens.
@@ -470,8 +470,8 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
                   size="icon-sm"
                   variant={showMermaid ? "secondary" : "ghost"}
                   aria-pressed={showMermaid}
-                  aria-label="Mermaid source"
-                  title="Mermaid source"
+                  aria-label="Diagram source"
+                  title="Diagram source (Mermaid, graph, DOT, PlantUML, D2)"
                   onClick={() => setShowMermaid((s) => !s)}
                 >
                   <Code2 />
@@ -680,11 +680,11 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
           />
         )}
         {doc && artifact?.kind === "diagram" && showMermaid && (
-          <MermaidSourcePanel
+          <DiagramSourcePanel
             key={doc.contentKey}
             content={doc.content}
             disabled={!editable}
-            onApply={canvas.applyMermaid}
+            onApply={canvas.applySource}
             onClose={() => setShowMermaid(false)}
           />
         )}

@@ -152,3 +152,11 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 39. **[process] README screenshots had to be re-shot from scratch.** The build-time screenshots were unusable for a README: a mix of UI generations, the Next.js dev badge, a menu caught mid-fade, placeholder "Mock Title" chats, and toy-sized mock diagrams. Class and ER diagram layouts showed crossing or crowded edges with more than about four nodes, a real gap that the small mock scripts never exercised (since fixed: see VERIFICATION.md).
     - *Kit change:* add a final "README & showcase" stage: a seeded demo script (rich doc, named chats, larger diagrams of each type), shot against the production build at a fixed viewport into a committed `docs/images/`. Add a mock script with a 6+ node class diagram and ER diagram to E2E so layout crowding is caught during the build.
+
+### 2026-09-25 · Stage 16 (diagram formats)
+
+40. **[process] Unit tests passed and E2E passed first time, yet screenshots found 6 layout defects.** The label/text/containment assertions in E2E-50/51 were all true while frames overlapped and arrows cut through shapes. The fixes held only after geometric invariants went into the unit tests: no shape overlaps, frames enclose exactly their members, frames overlap only when nested, no arrow crosses a shape it doesn't connect, and labels sit outside frames they cross.
+    - *Kit change:* for any auto-layout feature, the PRD should list the geometric invariants, and the kit should ship a reusable `layoutInvariants(scene)` test helper that every diagram spec calls.
+
+41. **[stack] Grouped layout needs a compound (nested) algorithm from the start.** Keeping group members together within columns is a dead end for nested containers. Laying out each group on its own and placing it as one box is simple (about 250 lines here) and makes frame overlap impossible by construction.
+    - *Kit change:* note in the diagramming stack guidance: "groups/containers → compound layout plus ports", and consider ELK (elkjs, EPL-2.0) as a pre-approved option if a project needs orthogonal routing.
