@@ -140,3 +140,25 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 **Surprises**
 
 - None. Excalidraw 0.18's `hashElementsVersion` plus `restoreElements` gave a stable baseline, so load and AI updates don't trigger autosaves.
+
+## Stage 6 — Diagram editing (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 47 passed / 0 failed (applyDiagramOps: add/arrow binding/placement, relabel, remove with cascade, restyle, unknown id, hand-drawn shape kept, no input mutation) |
+| `pnpm test:e2e --grep "@stage6"` | 2 passed / 0 failed on the first run |
+| `pnpm test:e2e --grep "@stage[0-6]"` | 23 passed / 0 failed |
+
+**Playwright MCP walkthrough**
+
+- E2E-21: pass. v2 / `ai` has labels `User, Login, Dashboard, Cache`. The ids of User/Login/Dashboard are identical before and after, and the new arrow is bound from Login to Cache. A screenshot shows Cache placed below Login with the arrow attached, and no overlap.
+- E2E-22: pass. The hand-drawn rectangle (v2 / user) is still present in v3 / `ai` alongside Cache.
+- Extra check: after the AI update is loaded into the open canvas, no echo autosave happens (it stays at v3 after 2 s).
+- No browser console errors.
+
+**Surprises / gaps**
+
+- G3 (freeform skeleton diagrams) is implemented (`create_diagram` with `elements`, converted with `convertToExcalidrawElements` in the browser), but no mock script or E2E scenario exercises it. Logged in KIT_FEEDBACK.md.

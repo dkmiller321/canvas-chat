@@ -54,3 +54,14 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 15. **[process] Stage-by-stage commits are awkward when shared UI spans stages.** The canvas panel (versions, quick actions, export menu, diagram editor) is one component, so the stage 3 commit contains code that is only verified in stages 4–7.
     - *Kit change:* either accept "stage N commit may contain later-stage code, verified later" in CLAUDE.md, or split milestones along component lines.
+
+### 2026-09-24 · Stages 5–6
+
+16. **[contract] Some P1 requirements have no mock script or scenario:** G3 skeleton diagrams, D9 diff view, and the "Ask AI" path for non-`shorten` instructions. They are built but only covered by unit tests and manual checks.
+    - *Kit change:* add S14 `sketch a box` → `create_diagram` with `elements` (two rectangles + an arrow), plus scenarios for D9 ("Changes" shows a removal and an addition after E2E-12's edit).
+
+17. **[contract] The MCP viewport (1280×720) is smaller than the spec viewport (1440×900).** The canvas is about 590 px wide under MCP, and drawing coordinates are proportional, so both happen to work. A fixed-coordinate drag would have diverged.
+    - *Kit change:* state one viewport for both the specs and the MCP server (`--viewport-size` on the MCP server config).
+
+18. **[process] Stages 5 and 6 passed on the first run** because the pure tool logic (`applyDiagramOps`) was unit-tested before it was wired up. That pattern worked well.
+    - *Kit change:* in CLAUDE.md, have the builder write and unit-test all pure tool modules in stage 0/1, before any UI.
