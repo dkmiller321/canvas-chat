@@ -369,3 +369,18 @@ MCP walkthrough (real UI):
 - E2E-48: pass. "PNG, transparent background" is an RGBA PNG with an empty background; "SVG, dark mode" contains Excalidraw's `invert` filter.
 
 Note: the test reset now also clears the shape library, so library state doesn't leak between specs.
+
+## v1.1 final acceptance (2026-09-25)
+
+| Step | Result |
+|---|---|
+| `pnpm format:check` / `pnpm typecheck` / `pnpm test` | clean / pass / **84 unit tests passed** |
+| `pnpm test:e2e` (dev server, mock model) | **49 passed / 0 failed** (E2E-00…48) |
+| `docker compose down -v && docker compose up -d --build` | healthy on a fresh volume; migration `0001_artifact_language` applied |
+| `BASE_URL=http://127.0.0.1:3000 pnpm test:e2e` (container) | **49 passed / 0 failed**, including diagram-embed exports rendered by the container's own Chromium |
+| MCP spot check on the container | document with a slash-menu task list, an embedded diagram (Clean preset) and a PDF export; code canvas; three artifacts in one chat |
+| `RUN_SMOKE=1 … @smoke` | still skipped: no `OPENROUTER_API_KEY` |
+
+Fixed during acceptance: the PDF task list printed ☐ on its own line (now a flex row); selecting an embedded diagram as a node showed a stray "Ask AI" button (now only text selections show it). The full suite passed again after both fixes.
+
+Spec changes in v1.1, all flagged above: E2E-31 normalises clipboard line endings (Windows); E2E-33/34 also assert *where* the new block lands (strengthened, not weakened). No assertion was weakened.

@@ -26,7 +26,8 @@ const STYLES = `
   figure.diagram img { max-width: 100%; max-height: 180mm; }
   figure.diagram figcaption, .diagram-missing { font-family: Inter, "DejaVu Sans", Arial, sans-serif; font-size: 9pt; color: #57606a; margin-top: 4pt; }
   ul.tasks { list-style: none; padding-left: 4pt; }
-  ul.tasks li::before { content: attr(data-box); margin-right: 6pt; }
+  ul.tasks li { display: flex; gap: 6pt; align-items: baseline; }
+  ul.tasks li > div > p { margin: 0; }
 `;
 
 export function markdownToHtml(markdown: string, title: string, diagrams = new Map<string, DiagramImage>()): string {

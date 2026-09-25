@@ -137,3 +137,13 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 35. **[process] MCP walkthrough scripts have their own bugs.** `page.waitForFunction(async () => …)` never waits (a Promise is truthy), which produced a false failure for E2E-39. Real-click walkthroughs also need scene-to-screen coordinates for canvas apps.
     - *Kit change:* add MCP helper snippets to E2E_TESTS §3: wait on `waitForResponse`/`expect.poll`, and a `sceneToViewport` helper for Excalidraw (`(x + scrollX) * zoom + offsetLeft`).
+
+### 2026-09-25 · v1.1 retrospective
+
+36. **[stack] Library claims vs reality.** mermaid-to-excalidraw 2.2 lists class/state/ER support, but in this build they fall back to a flat image (with console errors). Only a spec that asserted "no image elements" (E2E-44) caught it.
+    - *Kit change:* for every third-party conversion the PRD depends on, add an E2E assertion on the *shape* of the output (editable elements), not just "something rendered".
+
+37. **[process] Screenshot reviews found 9 real UI defects the specs missed** in v1.1 alone: the hidden outline rail, the typing-after-click bug, a tinted active line, grey sequence actors, an arrow into empty space, an ER label overlapping boxes, the off-screen redraw, the stray Ask AI button, and the PDF task-list layout.
+    - *Kit change:* make "MCP screenshot review, list defects, fix, re-shoot" a required step of every UI stage in CLAUDE.md, not an optional extra. It has the best defects-found-per-minute of any check in this build.
+
+38. **[process] Unit-testing pure transforms first paid off again.** Layout, presets, the Mermaid fallback, the selection scope and the export renderers were all pure and unit-tested before wiring, so stages 12–15 mostly passed their E2E specs on the first run.

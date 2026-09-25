@@ -1,6 +1,10 @@
 # Canvas Chat
 
-A self-hosted chat app where the LLM drafts editable documents (Tiptap) and diagrams (Excalidraw) beside the conversation. See `docs/PRD.md` for scope, `docs/DECISIONS.md` for decisions, and `docs/VERIFICATION.md` for test results.
+A self-hosted chat app where the LLM drafts editable documents (Tiptap) and diagrams (Excalidraw) beside the conversation.
+
+**Documents:** AI drafting and targeted edits, highlight-to-edit, quick actions, formatting toolbar, "/" slash menu, task lists, tables, live embedded diagrams, outline and word count, raw-Markdown view, version history with diff, restore and branch, export to Markdown/PDF/DOCX.
+**Code:** CodeMirror canvas with language picker, AI edits, code quick actions (comments, logging, fix bugs, optimise, port), source-file export.
+**Diagrams:** the full Excalidraw editor; AI flowcharts, sequence, class, state, ER and mind-map diagrams as editable shapes; ask AI about selected shapes; style presets (Colourful, Monochrome, Clean, Sketchy); tidy-up layout; Mermaid source view and edit; `.excalidraw` import; persisted shape library; PNG (incl. transparent), SVG (incl. dark) and `.excalidraw` export. See `docs/PRD.md` for scope, `docs/DECISIONS.md` for decisions, and `docs/VERIFICATION.md` for test results.
 
 ## Run it (Docker)
 

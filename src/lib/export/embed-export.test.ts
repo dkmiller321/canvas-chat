@@ -33,8 +33,8 @@ describe("diagram embeds and task lists in exports", () => {
     const html = markdownToHtmlBody(MD, new Map([[ID, image]]));
     expect(html).toContain('<figure class="diagram"><img src="data:image/svg+xml;base64,');
     expect(html).toContain("<figcaption>Login Flow</figcaption>");
-    expect(html).toContain('data-box="☐"');
-    expect(html).toContain('data-box="☑"');
+    expect(html).toContain('<span class="box">☐</span>');
+    expect(html).toContain('<span class="box">☑</span>');
   });
 
   it("shows a placeholder when a diagram could not be rendered", () => {

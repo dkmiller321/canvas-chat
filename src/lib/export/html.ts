@@ -52,7 +52,7 @@ function block(node: JSONContent, diagrams: Map<string, DiagramImage>): string {
     case "taskList":
       return `<ul class="tasks">${children()}</ul>`;
     case "taskItem":
-      return `<li data-box="${node.attrs?.checked ? "☑" : "☐"}">${children()}</li>`;
+      return `<li><span class="box">${node.attrs?.checked ? "☑" : "☐"}</span><div>${children()}</div></li>`;
     case "diagramEmbed": {
       const title = escape(String(node.attrs?.title ?? "Diagram"));
       const image = diagrams.get(String(node.attrs?.id));

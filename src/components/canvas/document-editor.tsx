@@ -3,6 +3,7 @@
 import { Markdown } from "@tiptap/markdown";
 import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { TableKit } from "@tiptap/extension-table";
+import { TextSelection } from "@tiptap/pm/state";
 import { EditorContent, useEditor, type Editor, type Range } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import { Sparkles } from "lucide-react";
@@ -129,7 +130,13 @@ export function DocumentEditor({
     onUpdate: ({ editor }) => onUserChangeRef.current(() => editor.getMarkdown()),
     onSelectionUpdate: ({ editor }) => {
       const wrap = wrapRef.current;
-      if (!wrap || !editor.isEditable || editor.state.selection.empty) {
+      // Ask AI is for selected text; a selected node (e.g. an embedded diagram) has nothing to rewrite.
+      if (
+        !wrap ||
+        !editor.isEditable ||
+        editor.state.selection.empty ||
+        !(editor.state.selection instanceof TextSelection)
+      ) {
         setAnchor(null);
         return;
       }
