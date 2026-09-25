@@ -1,4 +1,4 @@
-import { arrowStyle, paletteIndex, shapeStyle } from "@/lib/diagram-style";
+import { applyPreset, arrowStyle, paletteIndex, shapeStyle } from "@/lib/diagram-style";
 import { ToolError } from "./document";
 import type { DiagramOperation } from "./schemas";
 import { labelOf, type Scene, type SceneElement } from "./scene";
@@ -268,6 +268,14 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
         const { op: _op, id: _id, ...style } = op;
         for (const [k, v] of Object.entries(style)) if (v !== undefined) el[k] = v;
         touch(el);
+        break;
+      }
+      case "preset": {
+        // Whole-diagram restyle (G7); ids and positions are unchanged.
+        const styled = applyPreset(elements, op.preset);
+        elements.splice(0, elements.length, ...styled);
+        byId.clear();
+        for (const e of elements) if (!e.isDeleted) byId.set(e.id, e);
         break;
       }
     }

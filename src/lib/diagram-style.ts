@@ -46,7 +46,9 @@ export function shapeStyle(index: number) {
 export const arrowStyle = { strokeColor: ARROW_COLOR, strokeWidth: 2, roughness: 1 } as const;
 
 function contains(outer: El, inner: El): boolean {
+  // A group frame is strictly larger than what it holds (two identical boxes are just overlapping shapes).
   return (
+    outer.width * outer.height > inner.width * inner.height &&
     outer !== inner &&
     inner.x >= outer.x &&
     inner.y >= outer.y &&
@@ -93,5 +95,67 @@ export function styleElements<T extends El>(elements: T[]): T[] {
       : { ...e, ...round, ...shapeStyle(n) };
     n++;
     return styled;
+  });
+}
+
+export type Preset = "colorful" | "monochrome" | "clean" | "sketchy";
+
+/** Excalidraw font families: 5 Excalifont (hand-drawn), 6 Nunito (clean sans). */
+const FONT_HAND = 5;
+const FONT_CLEAN = 6;
+
+function touched<T extends El>(e: T, patch: Partial<El>): T {
+  const version = typeof e.version === "number" ? e.version : 1;
+  return { ...e, ...patch, version: version + 1, versionNonce: Math.floor(Math.random() * 2 ** 31) };
+}
+
+/**
+ * Restyle a whole diagram (G7). Colourful re-applies the palette; Monochrome is
+ * black ink on white; Clean is flat and precise (no roughness, solid fills, sans
+ * text); Sketchy is rougher with cross-hatching. Group frames stay dashed outlines.
+ */
+export function applyPreset<T extends El>(elements: T[], preset: Preset): T[] {
+  const live = elements.filter((e) => !e.isDeleted);
+  const shapes = live.filter((e) => SHAPES.has(e.type));
+  const frames = new Set(shapes.filter((s) => shapes.some((o) => contains(s, o))).map((s) => s.id));
+  let n = 0;
+  return elements.map((e) => {
+    if (e.isDeleted) return e;
+    if (e.type === "text") {
+      return touched(e, { strokeColor: TEXT_COLOR, fontFamily: preset === "clean" ? FONT_CLEAN : FONT_HAND });
+    }
+    if (e.type === "arrow" || e.type === "line") {
+      const roughness = preset === "clean" ? 0 : preset === "sketchy" ? 2 : 1;
+      return touched(e, { strokeColor: preset === "monochrome" ? TEXT_COLOR : ARROW_COLOR, roughness, strokeWidth: 2 });
+    }
+    if (!SHAPES.has(e.type) || frames.has(e.id)) return e;
+    const colour = PALETTE[n++ % PALETTE.length]!;
+    switch (preset) {
+      case "colorful":
+        return touched(e, { ...shapeStyle(n - 1) });
+      case "monochrome":
+        return touched(e, {
+          strokeColor: TEXT_COLOR,
+          backgroundColor: "transparent",
+          fillStyle: "solid",
+          strokeWidth: 2,
+        });
+      case "clean":
+        return touched(e, {
+          strokeColor: colour.stroke,
+          backgroundColor: colour.fill,
+          fillStyle: "solid",
+          roughness: 0,
+          strokeWidth: 1.5,
+        });
+      case "sketchy":
+        return touched(e, {
+          strokeColor: colour.stroke,
+          backgroundColor: colour.fill,
+          fillStyle: "cross-hatch",
+          roughness: 2,
+          strokeWidth: 2,
+        });
+    }
   });
 }

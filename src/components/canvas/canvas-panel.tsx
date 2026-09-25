@@ -11,6 +11,8 @@ import {
   FileCode,
   FileDiff,
   GitBranch,
+  LayoutDashboard,
+  Palette,
   ListTree,
   Loader2,
   Pencil,
@@ -57,6 +59,13 @@ const DiagramEditor = dynamic(() => import("./diagram-editor").then((m) => m.Dia
   ssr: false,
   loading: () => <CenteredSpinner label="Loading diagram editor" />,
 });
+
+const STYLE_PRESETS = [
+  { id: "colorful", label: "Colourful", hint: "Pastel fills, hand-drawn" },
+  { id: "monochrome", label: "Monochrome", hint: "Black ink, no fills" },
+  { id: "clean", label: "Clean", hint: "Flat, precise, sans-serif" },
+  { id: "sketchy", label: "Sketchy", hint: "Rough lines, cross-hatch" },
+] as const;
 
 function CenteredSpinner({ label }: { label: string }) {
   return (
@@ -413,6 +422,50 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
             >
               <GitBranch />
             </Button>
+            {artifact?.kind === "diagram" && (
+              <>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      data-testid="diagram-style-menu"
+                      size="icon-sm"
+                      variant="ghost"
+                      aria-label="Diagram style"
+                      title="Style"
+                      disabled={!editable}
+                    >
+                      <Palette />
+                    </Button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-56">
+                    <DropdownMenuLabel>Restyle the whole diagram</DropdownMenuLabel>
+                    {STYLE_PRESETS.map((p) => (
+                      <DropdownMenuItem
+                        key={p.id}
+                        data-testid={`style-${p.id}`}
+                        onSelect={() => diagramEditor.current?.applyPreset(p.id)}
+                      >
+                        <span className="flex flex-col">
+                          <span>{p.label}</span>
+                          <span className="text-xs text-muted-foreground">{p.hint}</span>
+                        </span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <Button
+                  data-testid="diagram-tidy"
+                  size="icon-sm"
+                  variant="ghost"
+                  aria-label="Tidy up layout"
+                  title="Tidy up layout"
+                  disabled={!editable}
+                  onClick={() => diagramEditor.current?.tidy()}
+                >
+                  <LayoutDashboard />
+                </Button>
+              </>
+            )}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button data-testid="artifact-delete" size="icon-sm" variant="ghost" aria-label="Delete" title="Delete">

@@ -14,13 +14,28 @@ import type { ExcalidrawImperativeAPI } from "@excalidraw/excalidraw/types";
 import { Sparkles } from "lucide-react";
 import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/button";
+import { tidyLayout } from "@/lib/diagram-layout";
+import { applyPreset, type Preset } from "@/lib/diagram-style";
 
 type Elements = Parameters<typeof hashElementsVersion>[0];
+type SceneLike = {
+  id: string;
+  type: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  [key: string]: unknown;
+};
 
 export type DiagramEditorHandle = {
   exportPng: () => Promise<Blob>;
   exportSvg: () => Promise<string>;
   exportJson: () => string;
+  /** Restyle the whole drawing (G7); saved through the normal autosave as a user version. */
+  applyPreset: (preset: Preset) => void;
+  /** Tidy-up layout (G7). */
+  tidy: () => void;
 };
 
 type Props = {
@@ -121,6 +136,18 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
     });
   };
 
+  /** Transform the scene as one undoable step; onChange then autosaves it. */
+  function replaceElements(transform: <T extends SceneLike>(els: T[]) => T[]) {
+    if (!api) return;
+    const next = transform([...api.getSceneElements()] as unknown as SceneLike[]);
+    // Refresh text sizes (fonts may have changed) and keep labels bound to their shapes.
+    const restored = restoreElements(next as unknown as Parameters<typeof restoreElements>[0], null, {
+      refreshDimensions: true,
+      repairBindings: true,
+    });
+    api.updateScene({ elements: restored, captureUpdate: CaptureUpdateAction.IMMEDIATELY });
+  }
+
   useImperativeHandle(
     handleRef,
     () => ({
@@ -143,6 +170,12 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
         return svg.outerHTML;
       },
       exportJson: serialize,
+      applyPreset: (preset) => replaceElements((els) => applyPreset(els, preset)),
+      tidy: () => {
+        replaceElements(tidyLayout);
+        // The new layout can extend past the visible area: bring it all into view.
+        api?.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true });
+      },
     }),
     [api], // eslint-disable-line react-hooks/exhaustive-deps -- serialize only depends on api
   );
@@ -157,7 +190,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   return (
     <div data-testid="diagram-editor" className="relative h-full w-full">
       {editable && selection.length > 0 && (
-        <div className="absolute top-16 left-1/2 z-10 -translate-x-1/2">
+        <div className="absolute bottom-20 left-1/2 z-10 -translate-x-1/2">
           {asking ? (
             <form
               className="flex w-[380px] items-center gap-1 rounded-xl border bg-popover p-1.5 shadow-xl"

@@ -318,3 +318,23 @@ MCP walkthrough (real mouse clicks on the shape, not the test hook; screenshots 
 - E2E-40: pass. "rename to auth" relabels the same box in place (same container id); the drawing updates without a reload.
 
 Surprise: my first walkthrough script reported a failure. `page.waitForFunction` with an *async* predicate returns a Promise, which is truthy, so it didn't wait and read v1. Diffing the versions and re-running with `waitForResponse` showed the app was correct. Logged in KIT_FEEDBACK.
+
+## Stage 13 — Diagram styles and layout (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 76 passed (adds tidy layout: ranking, no overlaps, labels move with shapes, bindings kept, cycles; presets; the `preset` op) |
+| `pnpm test:e2e --grep "@stage13 "` | 3 passed / 0 failed on the first run |
+| `pnpm test:e2e --grep "@stage([0-9]\|1[0-3]) "` | 44 passed / 0 failed |
+
+MCP walkthrough (real menu clicks and mouse drags; screenshots `v11-19…22`):
+- E2E-41: pass. The style menu offers Colourful, Monochrome, Clean and Sketchy, and each saves a user version. Clean is flat with a sans font; Sketchy is cross-hatched and rough.
+- E2E-42: pass. "Make it monochrome" gives an AI version with black ink on every shape.
+- E2E-43: pass. After dragging Cache out of place, Tidy lays the diagram out left to right (User → Login → Dashboard/Cache) with no overlaps, and arrows stay attached.
+- Checked: arrows still follow their shapes when dragged after a preset and after tidy-up.
+
+Surprises and fixes:
+- A unit test found that two identical overlapping boxes were both treated as "group frames" and never laid out. A frame must now be strictly larger than what it contains.
+- Tidy-up could leave the diagram partly off-screen; the view now scrolls to fit.
+- The "Ask AI about N selected" pill covered Excalidraw's hint text; it moved to the bottom of the canvas.
+- Not ours: dropping one shape directly on top of another can leave an arrow behind (Excalidraw's behaviour).

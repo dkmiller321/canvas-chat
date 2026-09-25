@@ -105,3 +105,15 @@ describe("applyDiagramOps", () => {
     expect(after.elements.find((e) => e.id === "hand")).toMatchObject({ x: 700, y: 300 });
   });
 });
+
+describe("preset operation (G7)", () => {
+  it("restyles every shape without changing ids or positions", () => {
+    const before = loginFlow();
+    const after = applyDiagramOps(before, [{ op: "preset", preset: "monochrome" }]);
+    for (const r of after.elements.filter((e) => e.type === "rectangle")) {
+      expect(r).toMatchObject({ strokeColor: "#1e1e1e", backgroundColor: "transparent" });
+      const orig = before.elements.find((e) => e.id === r.id);
+      expect([r.x, r.y]).toEqual([orig?.x, orig?.y]);
+    }
+  });
+});
