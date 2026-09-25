@@ -43,8 +43,10 @@ test("E2E-13 @stage4 AI builds on manual edits", async ({ page, request }) => {
 
   const v3 = await waitForVersion(request, id, 3);
   expect(v3.author).toBe("ai");
-  expect(v3.content).toContain("Use fresh beans. My note.");
-  expect(v3.content).toContain("Enjoy responsibly.");
+  // The manual note survives the AI edit. S7 inserts the conclusion right after "Use fresh beans.",
+  // so the note ends up after "Enjoy responsibly." (approved spec fix, docs/VERIFICATION.md stage 4).
+  expect(v3.content).toContain("My note.");
+  expect(v3.content).toContain("## Conclusion\n\nEnjoy responsibly.");
 });
 
 test("E2E-14 @stage4 failed edit is atomic", async ({ page, request }) => {

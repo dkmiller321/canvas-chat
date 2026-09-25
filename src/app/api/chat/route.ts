@@ -6,6 +6,7 @@ import { loadArtifactContext } from "@/lib/llm/artifact-context";
 import { buildInstructions } from "@/lib/llm/context";
 import { getModel } from "@/lib/llm/provider";
 import { chatTools } from "@/lib/tools";
+import { ToolError } from "@/lib/tools/document";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 300;
@@ -47,5 +48,8 @@ export async function POST(req: Request) {
       if (responseMessage.parts.length > 0) await saveMessage(id, responseMessage);
     },
     consumeSseStream: consumeStream,
+    // Tool failures meant for the model (e.g. "text not found") are useful to the user too;
+    // anything else stays generic so server details don't leak.
+    onError: (error) => (error instanceof ToolError ? error.message : "An error occurred."),
   });
 }

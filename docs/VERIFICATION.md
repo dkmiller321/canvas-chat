@@ -92,3 +92,28 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 - **Proposed spec addition (not made):** E2E-10 could type a manual edit before closing and assert that the reopened editor shows it. The current specs don't cover this path.
 - Under the mock the "Writing document…" state lasts about 50 ms. The MCP server's round-trips can't sample it with separate calls, so both the spec and the walkthrough use an in-page observer.
 - React warned about an inline `<script>` during a Fast Refresh reload. The theme script now uses `next/script` `beforeInteractive`, and a fresh load plus reload logs no console errors or warnings.
+
+## Stage 4 — Document editing (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 47 passed / 0 failed (applyEdits atomicity, ambiguity, S6–S10 logic, rewriteSelection) |
+| `pnpm test:e2e --grep "@stage[0-4]"` | 1st run: 17 passed, 1 failed (E2E-13, see below). After the user-approved spec fix: 18 passed / 0 failed (31.6 s) |
+
+**Playwright MCP walkthrough**
+
+- E2E-12: pass. Lines went from `Coffee is a brewed drink.` to `Coffee is a beverage prepared from roasted beans.`, every other line was unchanged, and the API showed v2 / `ai`.
+- E2E-13: pass. Typed ` My note.` (v2 / user), then "Add a conclusion". Editor lines: `… Use fresh beans. / Conclusion / Enjoy responsibly. My note.`, with a Conclusion heading, and the API showed v3 / `ai`.
+- E2E-14: pass. `tool-status` read "Editing the document failed", with 1 version only. After the fix below it also shows the reason: `Edit 1 failed: the text "TEXT THAT DOES NOT EXIST" was not found…`.
+- E2E-15: pass. Triple-click, then `ask-ai-button` → `shorten` → submit. The paragraph became `Grind beans fresh.`, other lines were unchanged, and the API showed v2 / `ai`.
+- E2E-16: pass. `quick-action-formal` produced `COFFEE Guide / COFFEE is a brewed drink. …`, with no `Coffee` left, and the API showed v2 / `ai`.
+- E2E-17: pass. Viewing v1 gave `contenteditable="false"`. After restore the API showed v3 / `user`, content equal to v1, and `contenteditable="true"`.
+
+**Surprises**
+
+- **Spec fix (approved by the user):** E2E-13 had an assertion I added beyond E2E_TESTS.md, "v3 contains `Use fresh beans. My note.`". It contradicts script S7, which inserts the conclusion between the two sentences. It now asserts v3 contains `My note.` and `## Conclusion\n\nEnjoy responsibly.`. Every documented assertion is unchanged.
+- The AI SDK masks tool-error text in the UI stream ("An error occurred."). The chat route's `onError` now passes `ToolError` messages through and keeps other errors generic.
+- My first E2E-16 walkthrough check passed falsely, because Playwright's `getByText` is case-insensitive. I re-checked with a case-sensitive `textContent.includes`.
