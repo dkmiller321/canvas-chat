@@ -110,6 +110,93 @@ describe("arrow routing", () => {
   });
 });
 
+describe("crowded graphs", () => {
+  const byId = (els: E[]) => Object.fromEntries(els.map((e) => [e.id, e]));
+  // Straight segment a→b crosses box r (Liang–Barsky clip against the box, shrunk by 1px).
+  const crosses = (a: [number, number], b: [number, number], r: E) => {
+    let t0 = 0;
+    let t1 = 1;
+    const d = [b[0] - a[0], b[1] - a[1]];
+    const p = [-d[0]!, d[0]!, -d[1]!, d[1]!];
+    const q = [a[0] - (r.x + 1), r.x + r.width - 1 - a[0], a[1] - (r.y + 1), r.y + r.height - 1 - a[1]];
+    for (let i = 0; i < 4; i++) {
+      if (p[i] === 0) {
+        if (q[i]! < 0) return false;
+      } else {
+        const t = q[i]! / p[i]!;
+        if (p[i]! < 0) t0 = Math.max(t0, t);
+        else t1 = Math.min(t1, t);
+      }
+    }
+    return t0 < t1;
+  };
+  const segments = (a: E) => {
+    const pts = (a.points as [number, number][]).map(([x, y]) => [a.x + x, a.y + y] as [number, number]);
+    return pts.slice(1).map((p, i) => [pts[i]!, p] as const);
+  };
+  const noArrowThroughShapes = (out: E[]) => {
+    const rects = shapes(out);
+    for (const a of out.filter((e) => e.type === "arrow")) {
+      const ends = [a.startBinding?.elementId, a.endBinding?.elementId];
+      for (const r of rects.filter((r) => !ends.includes(r.id)))
+        for (const [p, q] of segments(a)) expect(crosses(p, q, r), `${a.id} through ${r.id}`).toBe(false);
+    }
+  };
+
+  it("puts a source next to its target instead of spanning columns (ER: PRODUCT → LINE_ITEM)", () => {
+    const out = tidyLayout([
+      ...box("customer", 0, 0),
+      ...box("order", 0, 100),
+      ...box("item", 0, 200),
+      ...box("product", 0, 300),
+      arrow("places", "customer", "order"),
+      arrow("contains", "order", "item"),
+      arrow("listed", "product", "item"),
+    ]);
+    const s = byId(out);
+    expect(s.product!.x).toBe(s.order!.x);
+    noArrowThroughShapes(out);
+  });
+
+  it("routes an edge that must span columns around the shapes in between", () => {
+    // a → b → c → d, plus a → d: the long edge must not cut through b or c.
+    const out = tidyLayout([
+      ...box("a", 0, 0),
+      ...box("b", 0, 100),
+      ...box("c", 0, 200),
+      ...box("d", 0, 300),
+      arrow("ab", "a", "b"),
+      arrow("bc", "b", "c"),
+      arrow("cd", "c", "d"),
+      arrow("ad", "a", "d"),
+    ]);
+    const ad = byId(out).ad!;
+    expect((ad.points as unknown[]).length).toBeGreaterThan(2);
+    expect(ad.endBinding).toEqual({ elementId: "d" });
+    noArrowThroughShapes(out);
+  });
+
+  it("orders columns to avoid needless crossings (class: Owner walks Dog, feeds Cat)", () => {
+    const out = tidyLayout([
+      ...box("cat", 0, 0),
+      ...box("vet", 0, 100),
+      ...box("dog", 0, 200),
+      ...box("owner", 0, 300),
+      ...box("animal", 0, 400),
+      arrow("i1", "dog", "animal"),
+      arrow("i2", "cat", "animal"),
+      arrow("walks", "owner", "dog"),
+      arrow("feeds", "owner", "cat"),
+      arrow("treats", "vet", "animal"),
+    ]);
+    const s = byId(out);
+    expect(s.vet!.x).toBe(s.dog!.x);
+    noArrowThroughShapes(out);
+    const rects = shapes(out);
+    for (const a of rects) for (const b of rects) if (a.id < b.id) expect(overlap(a, b), `${a.id}/${b.id}`).toBe(false);
+  });
+});
+
 describe("styleElements", () => {
   it("treats Mermaid's grey fills as unset and colours repeated labels the same", async () => {
     const { styleElements } = await import("./diagram-style");

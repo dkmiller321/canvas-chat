@@ -384,3 +384,19 @@ Note: the test reset now also clears the shape library, so library state doesn't
 Fixed during acceptance: the PDF task list printed ☐ on its own line (now a flex row); selecting an embedded diagram as a node showed a stray "Ask AI" button (now only text selections show it). The full suite passed again after both fixes.
 
 Spec changes in v1.1, all flagged above: E2E-31 normalises clipboard line endings (Windows); E2E-33/34 also assert *where* the new block lands (strengthened, not weakened). No assertion was weakened.
+
+## Fix: class and ER diagram layout crowding (2026-09-25)
+
+Problem: with more than about four nodes, class and ER diagrams laid out by `tidyLayout` had arrows cutting through shapes and colliding labels. The causes: sources were always placed in column 0, so their edges spanned several columns as straight lines; and columns got only one barycenter sweep.
+
+Fix (`src/lib/diagram-layout.ts`):
+- A source is placed just before its nearest target.
+- An arrow spanning several columns reserves an empty slot in each column it passes through, and is routed as a polyline through those slots.
+- Columns get up to four down/up barycenter sweeps, keeping the order with the fewest crossings.
+
+- `pnpm typecheck && pnpm test`: pass, 87/87 (3 new tests under "crowded graphs": a source placed next to its target, a long edge routed around shapes, and no arrows through shapes or overlapping shapes in the 5-class example; all three failed before the fix).
+- `docker compose up -d --build`, then `BASE_URL=http://127.0.0.1:3000 pnpm test:e2e`: 49/49 pass.
+- MCP check against the container, redrawing through the Mermaid source panel:
+  - 5-class (Owner/Dog/Cat/Vet/Animal) and 4-entity ER (CUSTOMER/ORDER/LINE_ITEM/PRODUCT): no arrow crosses a shape, and no labels overlap.
+  - 8-class and 7-entity stress diagrams: clean, apart from one crossing that is inherent to a left-to-right layout (Car/Truck → Vehicle/Engine).
+- README images `type-class.png` and `type-er.png` were re-shot with the previously crowded diagrams.

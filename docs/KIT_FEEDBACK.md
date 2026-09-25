@@ -150,5 +150,5 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 ### 2026-09-25 · README
 
-39. **[process] README screenshots had to be re-shot from scratch.** The build-time screenshots were unusable for a README: a mix of UI generations, the Next.js dev badge, a menu caught mid-fade, placeholder "Mock Title" chats, and toy-sized mock diagrams. Class and ER diagram layouts still show crossing or crowded edges with more than about four nodes (a real gap that small mock scripts never exercised).
+39. **[process] README screenshots had to be re-shot from scratch.** The build-time screenshots were unusable for a README: a mix of UI generations, the Next.js dev badge, a menu caught mid-fade, placeholder "Mock Title" chats, and toy-sized mock diagrams. Class and ER diagram layouts showed crossing or crowded edges with more than about four nodes, a real gap that the small mock scripts never exercised (since fixed: see VERIFICATION.md).
     - *Kit change:* add a final "README & showcase" stage: a seeded demo script (rich doc, named chats, larger diagrams of each type), shot against the production build at a fixed viewport into a committed `docs/images/`. Add a mock script with a 6+ node class diagram and ER diagram to E2E so layout crowding is caught during the build.

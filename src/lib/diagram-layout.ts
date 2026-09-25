@@ -1,10 +1,11 @@
 /**
  * Tidy-up (G7): a small layered layout for flow diagrams. Shapes connected by
- * arrows are ranked left to right by longest path from the sources, each column
- * is ordered by its predecessors' positions (one barycenter sweep), and columns
- * are centred vertically. Labels move with their shapes; arrows keep their
- * bindings and are re-routed as straight lines. Group frames, free text and
- * unconnected lines are left where they are.
+ * arrows are ranked left to right by longest path, with sources pulled next to
+ * their targets. Arrows spanning several columns get an empty slot in each column
+ * they pass through; columns are ordered by barycenter sweeps (keeping the order
+ * with fewest crossings) and centred vertically. Labels move with their shapes;
+ * arrows keep their bindings and are re-routed as straight lines, or through
+ * their slots. Group frames, free text and unconnected lines are left where they are.
  */
 
 type El = {
@@ -26,6 +27,8 @@ type Box = { x: number; y: number; width: number; height: number };
 const SHAPES = new Set(["rectangle", "ellipse", "diamond"]);
 const COLUMN_GAP = 110;
 const ROW_GAP = 60;
+/** Height of the slot an arrow takes when it passes through a column. */
+const DUMMY_HEIGHT = 24;
 
 const center = (b: Box) => ({ x: b.x + b.width / 2, y: b.y + b.height / 2 });
 
@@ -86,23 +89,93 @@ export function tidyLayout<T extends El>(elements: T[]): T[] {
   };
   for (const n of byTopY) if ((indeg.get(n.id) ?? 0) === 0) visit(n.id, 0);
   for (const n of byTopY) if (!rank.has(n.id)) visit(n.id, 0);
+  // A source sits just before its nearest target, so its arrows don't span columns.
+  for (const n of byTopY) {
+    if ((indeg.get(n.id) ?? 0) > 0) continue;
+    const later = (out.get(n.id) ?? []).map((t) => rank.get(t)!).filter((r) => r > rank.get(n.id)!);
+    if (later.length) rank.set(n.id, Math.min(...later) - 1);
+  }
 
-  // Columns ordered by predecessors' positions, falling back to the original top-to-bottom order.
-  const preds = new Map<string, string[]>();
-  for (const e of edges) preds.set(e.to, [...(preds.get(e.to) ?? []), e.from]);
-  const columns: T[][] = [];
-  for (const n of byTopY) (columns[rank.get(n.id)!] ??= []).push(n);
-  const order = new Map<string, number>();
-  columns.forEach((col, ci) => {
-    if (ci > 0) {
-      const key = (n: T) => {
-        const ps = (preds.get(n.id) ?? []).map((p) => order.get(p)).filter((v): v is number => v !== undefined);
-        return ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : Number.MAX_SAFE_INTEGER;
-      };
-      col.sort((a, b) => key(a) - key(b));
+  const labelWidth = new Map<string, number>();
+  const labelHeight = new Map<string, number>();
+  for (const el of live) {
+    if (el.type === "text" && el.containerId) {
+      labelWidth.set(el.containerId, el.width);
+      labelHeight.set(el.containerId, el.height);
     }
-    col.forEach((n, i) => order.set(n.id, i));
-  });
+  }
+
+  // Each column holds shapes plus one empty slot for every arrow passing through it,
+  // so an arrow spanning columns is routed between the shapes instead of across them.
+  type Slot = { id: string; width: number; height: number };
+  const columns: Slot[][] = [];
+  for (const n of byTopY) (columns[rank.get(n.id)!] ??= []).push(n);
+  const via = new Map<string, string[]>();
+  const links: { from: string; to: string; arrow: string }[] = [];
+  for (const e of edges) {
+    const r0 = rank.get(e.from)!;
+    const r1 = rank.get(e.to)!;
+    if (r1 <= r0) continue;
+    const ids: string[] = [];
+    let prev = e.from;
+    for (let r = r0 + 1; r < r1; r++) {
+      const id = `${e.arrow.id}#${r}`;
+      const width = labelWidth.get(e.arrow.id) ?? 0;
+      (columns[r] ??= []).push({ id, width, height: Math.max(DUMMY_HEIGHT, labelHeight.get(e.arrow.id) ?? 0) });
+      links.push({ from: prev, to: id, arrow: e.arrow.id });
+      ids.push(id);
+      prev = id;
+    }
+    links.push({ from: prev, to: e.to, arrow: e.arrow.id });
+    via.set(e.arrow.id, ids);
+  }
+
+  // Order each column by its neighbours' positions (barycenter), sweeping right then
+  // left a few times and keeping the order with the fewest crossings.
+  const preds = new Map<string, string[]>();
+  const succs = new Map<string, string[]>();
+  for (const l of links) {
+    preds.set(l.to, [...(preds.get(l.to) ?? []), l.from]);
+    succs.set(l.from, [...(succs.get(l.from) ?? []), l.to]);
+  }
+  const pos = new Map<string, number>();
+  const index = () => columns.forEach((col) => col?.forEach((s, i) => pos.set(s.id, i)));
+  index();
+  const reorder = (col: Slot[] | undefined, neighbours: Map<string, string[]>) => {
+    if (!col) return;
+    const key = new Map(
+      col.map((s) => {
+        const ps = (neighbours.get(s.id) ?? []).map((p) => pos.get(p)!);
+        return [s.id, ps.length ? ps.reduce((a, b) => a + b, 0) / ps.length : pos.get(s.id)!] as const;
+      }),
+    );
+    col.sort((a, b) => key.get(a.id)! - key.get(b.id)!);
+    col.forEach((s, i) => pos.set(s.id, i));
+  };
+  const colOf = new Map<string, number>();
+  columns.forEach((col, ci) => col?.forEach((s) => colOf.set(s.id, ci)));
+  // Links always join adjacent columns; two links in the same gap cross when their ends swap order.
+  const crossings = () => {
+    let count = 0;
+    for (let i = 0; i < links.length; i++)
+      for (let j = i + 1; j < links.length; j++) {
+        const a = links[i]!;
+        const b = links[j]!;
+        if (a.from === b.from || a.to === b.to) continue;
+        const sameGap = colOf.get(a.from) === colOf.get(b.from);
+        if (sameGap && (pos.get(a.from)! - pos.get(b.from)!) * (pos.get(a.to)! - pos.get(b.to)!) < 0) count++;
+      }
+    return count;
+  };
+  let best = { score: crossings(), order: columns.map((c) => c?.slice()) };
+  for (let pass = 0; pass < 4 && best.score > 0; pass++) {
+    for (let c = 1; c < columns.length; c++) reorder(columns[c], preds);
+    for (let c = columns.length - 2; c >= 0; c--) reorder(columns[c], succs);
+    const score = crossings();
+    if (score < best.score) best = { score, order: columns.map((c) => c?.slice()) };
+  }
+  best.order.forEach((col, ci) => (columns[ci] = col!));
+  index();
 
   // Place columns left to right, each centred on the original diagram's vertical centre.
   const originX = Math.min(...nodes.map((n) => n.x));
@@ -110,13 +183,9 @@ export function tidyLayout<T extends El>(elements: T[]): T[] {
   const placed = new Map<string, Box>();
   let x = originX;
   // A gap must fit the widest label on the arrows leaving that column.
-  const labelWidth = new Map<string, number>();
-  for (const el of live) {
-    if (el.type === "text" && el.containerId) labelWidth.set(el.containerId, el.width);
-  }
-  const gapAfter = (col: T[]) => {
+  const gapAfter = (col: Slot[]) => {
     const ids = new Set(col.map((n) => n.id));
-    const widest = Math.max(0, ...edges.filter((e) => ids.has(e.from)).map((e) => labelWidth.get(e.arrow.id) ?? 0));
+    const widest = Math.max(0, ...links.filter((l) => ids.has(l.from)).map((l) => labelWidth.get(l.arrow) ?? 0));
     return Math.max(COLUMN_GAP, widest + 60);
   };
   for (const col of columns) {
@@ -174,6 +243,22 @@ export function tidyLayout<T extends El>(elements: T[]): T[] {
           width: Math.abs(end.x - start.x),
           height: dip - Math.min(start.y, end.y),
           points,
+          roundness: { type: 2 },
+        });
+      }
+      const bends = (via.get(e.id) ?? []).map((id) => center(placed.get(id)!));
+      if (bends.length) {
+        const start = edgePoint(from, bends[0]!);
+        const end = edgePoint(to, bends.at(-1)!);
+        const all = [start, ...bends, end];
+        const xs = all.map((p) => p.x);
+        const ys = all.map((p) => p.y);
+        return bump(e, {
+          x: start.x,
+          y: start.y,
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys),
+          points: all.map((p) => [p.x - start.x, p.y - start.y] as [number, number]),
           roundness: { type: 2 },
         });
       }
