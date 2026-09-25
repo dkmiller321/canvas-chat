@@ -1,0 +1,160 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --radius: 0.5rem;
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.2 0.01 260);
+  --muted: oklch(0.96 0.005 260);
+  --muted-foreground: oklch(0.45 0.015 260);
+  --card: oklch(0.99 0.002 260);
+  --card-foreground: oklch(0.2 0.01 260);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.2 0.01 260);
+  --primary: oklch(0.45 0.16 265);
+  --primary-foreground: oklch(0.99 0 0);
+  --secondary: oklch(0.95 0.01 260);
+  --secondary-foreground: oklch(0.25 0.02 260);
+  --accent: oklch(0.94 0.015 260);
+  --accent-foreground: oklch(0.2 0.02 260);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.9 0.008 260);
+  --input: oklch(0.88 0.008 260);
+  --ring: oklch(0.55 0.16 265);
+  --sidebar: oklch(0.975 0.004 260);
+  --ai: oklch(0.5 0.14 300);
+  --added: oklch(0.93 0.07 150);
+  --removed: oklch(0.93 0.06 25);
+}
+
+.dark {
+  --background: oklch(0.17 0.01 260);
+  --foreground: oklch(0.95 0.005 260);
+  --muted: oklch(0.24 0.012 260);
+  --muted-foreground: oklch(0.72 0.015 260);
+  --card: oklch(0.2 0.012 260);
+  --card-foreground: oklch(0.95 0.005 260);
+  --popover: oklch(0.21 0.012 260);
+  --popover-foreground: oklch(0.95 0.005 260);
+  --primary: oklch(0.72 0.13 265);
+  --primary-foreground: oklch(0.17 0.02 265);
+  --secondary: oklch(0.26 0.012 260);
+  --secondary-foreground: oklch(0.95 0.005 260);
+  --accent: oklch(0.28 0.015 260);
+  --accent-foreground: oklch(0.95 0.005 260);
+  --destructive: oklch(0.65 0.19 25);
+  --border: oklch(0.3 0.012 260);
+  --input: oklch(0.34 0.012 260);
+  --ring: oklch(0.7 0.13 265);
+  --sidebar: oklch(0.2 0.01 260);
+  --ai: oklch(0.78 0.11 300);
+  --added: oklch(0.35 0.08 150);
+  --removed: oklch(0.36 0.09 25);
+}
+
+@theme inline {
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 4px);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-ai: var(--ai);
+  --color-added: var(--added);
+  --color-removed: var(--removed);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html,
+  body {
+    @apply h-full bg-background text-foreground antialiased;
+  }
+}
+
+/* Markdown in chat messages and the document editor (no typography plugin). */
+@layer components {
+  .prose-chat,
+  .doc-prose {
+    @apply leading-relaxed;
+  }
+  :is(.prose-chat, .doc-prose) > * + * {
+    @apply mt-3;
+  }
+  :is(.prose-chat, .doc-prose) h1 {
+    @apply mt-6 text-2xl font-semibold tracking-tight;
+  }
+  :is(.prose-chat, .doc-prose) h2 {
+    @apply mt-5 text-xl font-semibold tracking-tight;
+  }
+  :is(.prose-chat, .doc-prose) h3 {
+    @apply mt-4 text-lg font-semibold;
+  }
+  :is(.prose-chat, .doc-prose) :is(h1, h2, h3):first-child {
+    @apply mt-0;
+  }
+  :is(.prose-chat, .doc-prose) ul {
+    @apply list-disc pl-6;
+  }
+  :is(.prose-chat, .doc-prose) ol {
+    @apply list-decimal pl-6;
+  }
+  :is(.prose-chat, .doc-prose) li + li {
+    @apply mt-1;
+  }
+  :is(.prose-chat, .doc-prose) a {
+    @apply text-primary underline underline-offset-2;
+  }
+  :is(.prose-chat, .doc-prose) blockquote {
+    @apply border-l-4 pl-4 text-muted-foreground;
+  }
+  :is(.prose-chat, .doc-prose) :not(pre) > code {
+    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.85em];
+  }
+  .doc-prose pre {
+    @apply overflow-x-auto rounded-lg border bg-muted/50 p-3 font-mono text-sm;
+  }
+  :is(.prose-chat, .doc-prose) table {
+    @apply w-full border-collapse text-sm;
+  }
+  :is(.prose-chat, .doc-prose) :is(th, td) {
+    @apply border px-2 py-1 text-left align-top;
+  }
+  :is(.prose-chat, .doc-prose) th {
+    @apply bg-muted font-semibold;
+  }
+  :is(.prose-chat, .doc-prose) hr {
+    @apply my-6;
+  }
+}
+
+/* Shiki dual themes: colours come from CSS variables it emits. */
+.shiki-wrap pre {
+  background: transparent !important;
+}
+.shiki-wrap span {
+  color: var(--shiki-light);
+}
+.dark .shiki-wrap span {
+  color: var(--shiki-dark);
+}
