@@ -188,3 +188,34 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 - Next 16 refuses any import of `react-dom/server` in the app bundle. My PDF HTML used `renderToStaticMarkup`, and the compile error returned 500 from **every** route, including `/api/test/reset`. Replaced it with a small renderer from the same Tiptap JSON the DOCX export uses, so both exports share one Markdown dialect.
 - Several of my scripted (Python) edits silently didn't apply, because files written on Windows have CRLF endings. The sidebar settings link was missing until I found it through the E2E-27 failure. I audited every earlier scripted edit (all present) and switched to exact-match edits.
 - Console, dev only: Excalidraw's font-subsetting worker can't load under Turbopack dev (`file:///ROOT/...`), so it falls back to the main thread and SVG export still works. Checked again against the production build in final acceptance. One `ERR_INCOMPLETE_CHUNKED_ENCODING` came from my walkthrough navigating away mid-stream, not from the app.
+
+## Final acceptance (2026-09-24)
+
+**Steps (CLAUDE.md → Final acceptance)**
+
+| Step | Command | Result |
+|---|---|---|
+| 1 | `docker compose up -d --build`, then poll `/api/health` | 200 `{"status":"ok","db":"ok"}`. The app is published on `127.0.0.1:3000` only. Re-run on a fresh volume (`docker compose down -v`): the container applied migrations (5 tables) and seeded settings by itself. |
+| 2 | `BASE_URL=http://127.0.0.1:3000 pnpm test:e2e` | 1st run 27 passed / 1 failed (E2E-23 PDF, see below). After the fix: **28 passed / 0 failed** (51.8 s) |
+| 3 | MCP walkthrough of every scenario (all P0 plus the P1 ones) against the container | **E2E-00 … E2E-27: 28 pass / 0 fail.** Exports saved and checked: PDF `%PDF-`, 7.9 KB; DOCX a valid zip; PNG signature; SVG and `.excalidraw` valid |
+| 4 | `RUN_SMOKE=1 pnpm test:e2e --grep @smoke` | **Skipped:** `OPENROUTER_API_KEY` is empty in `.env`. The 4 smoke specs list correctly and skip with that reason. |
+
+**Totals**
+
+- Unit (Vitest): 48 passed / 0 failed.
+- E2E (mock model): 28 passed / 0 failed on `pnpm dev` and 28 / 0 on the Docker stack.
+- MCP walkthroughs: every scenario passed at its stage and again against the container.
+- Smoke (real model): 4 skipped (no API key).
+
+**Fixes made during final acceptance**
+
+- `next build` in Docker failed with "Failed to collect page data for /api/health": the DB client validated env at import time, and the build has no runtime env. The client is now created lazily on first use.
+- PDF export returned an error in the container: standalone output tracing leaves out Playwright's runtime files (`browsers.json`). `outputFileTracingIncludes` didn't apply to the route, so the Dockerfile copies both Playwright packages whole.
+
+**Known issues**
+
+1. Excalidraw's font-subsetting worker fails to start (`file:///ROOT/...` URL from the Turbopack bundle) in both dev and production. Excalidraw falls back to the main thread, so SVG/PNG export works but is slower for large drawings.
+2. The real-model path (OpenRouter) is untested here: no API key was available. Tool calling, the diagram skeleton path (G3) and title generation have only run against the mock.
+3. G3 skeleton diagrams, the D9 diff view and non-scripted "Ask AI" instructions have no E2E scenario (unit tests and manual checks only).
+4. Highlight-to-edit replaces the first exact occurrence of the selected Markdown (DECISIONS #13).
+5. The GitHub Actions workflow has never run, because the repo has no remote (DECISIONS #7).

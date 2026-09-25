@@ -8,8 +8,21 @@ function create() {
   return drizzle(client, { schema });
 }
 
-// Reuse one pool across dev hot reloads.
-const globalForDb = globalThis as unknown as { db?: ReturnType<typeof create> };
+export type Db = ReturnType<typeof create>;
 
-export const db = (globalForDb.db ??= create());
-export type Db = typeof db;
+// One pool, reused across dev hot reloads. Created on first use, not at import:
+// `next build` imports route modules without a runtime environment.
+const globalForDb = globalThis as unknown as { db?: Db };
+
+function instance(): Db {
+  globalForDb.db ??= create();
+  return globalForDb.db;
+}
+
+export const db = new Proxy({} as Db, {
+  get(_target, prop) {
+    const real = instance();
+    const value = Reflect.get(real, prop, real) as unknown;
+    return typeof value === "function" ? (value as (...args: unknown[]) => unknown).bind(real) : value;
+  },
+});

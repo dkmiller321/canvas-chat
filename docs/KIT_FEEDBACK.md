@@ -79,3 +79,30 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 22. **[prd] The E2E contract makes one PRD requirement impossible as written:** D9 "diff view before accepting" versus E2E-12, which applies edits immediately. I resolved it as "diff after apply, reject = restore" (DECISIONS #14).
     - *Kit change:* decide in the PRD whether AI edits need acceptance; if so, add an accept step to the scenarios.
+
+### 2026-09-24 · Final acceptance
+
+23. **[stack] `next build` evaluates route modules.** Anything that validates env at import time (a DB client created at module load) fails the Docker build, which has no `.env`. It only showed up at final acceptance, because local builds read `.env`.
+    - *Kit change:* CLAUDE.md conventions: "create clients lazily; env is validated at first use/startup, never at import." Also run `docker compose build` in stage 0, not only at the end. The skeleton stage's "Done when" already says `docker compose up` works, so enforce it.
+
+24. **[stack] Standalone output tracing drops Playwright's runtime files** (`browsers.json`), so server-side PDF export breaks only in the container. `outputFileTracingIncludes` didn't take effect for the dynamic route, and copying the packages in the Dockerfile fixed it.
+    - *Kit change:* ship this Dockerfile snippet in the kit, and add "export PDF in the container" to stage 0's done-when (a trivial export route).
+
+25. **[process] Final acceptance was the first time the Docker image ran.** Both container-only bugs above would have been found in stage 0 if each stage's checks included `BASE_URL=… pnpm test:e2e --grep @stageN` against Compose.
+    - *Kit change:* make "build the image and run this stage's specs against it" part of every stage (it adds about a minute), or at least stages 0, 3 and 7.
+
+26. **[env] No `OPENROUTER_API_KEY`, so the real-model path is unverified.** Everything tested is mock-only.
+    - *Kit change:* KICKOFF could ask up front for a spend-limited key, or say explicitly that the smoke suite is optional. The mock should also cover the real provider's quirks (e.g. partial tool-input streaming, multiple tool calls in one step).
+
+## Summary for the next kit (top 10 by impact)
+
+1. A preflight script: Docker running, git repo + identity, `.env`, free ports (#1, #2).
+2. Pin major versions of `ai`, `next`, `typescript` and friends, or ship a lockfile (#4).
+3. Widen the pre-approved dependency list to what the PRD actually needs (#3).
+4. Build and test against the Docker image from stage 0 (#23–#25).
+5. Add a `.gitattributes`/`.editorconfig` for LF endings (#20).
+6. Extend the testid contract with regenerate/edit/rename controls (#21).
+7. Add scenarios for chained flows (edit → close → reopen) and for G3/D9 (#10, #16).
+8. Settle D9 "accept before apply" in the PRD (#22).
+9. Put the AI SDK gotchas in CLAUDE.md: `generateMessageId`, `onError` for tool errors, no `react-dom/server` (#9, #13, #19).
+10. Speed up the tests-first baseline with a short timeout (#5).

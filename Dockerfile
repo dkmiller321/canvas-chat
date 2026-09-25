@@ -23,6 +23,9 @@ RUN npx -y playwright@1.63.0 install --with-deps chromium-headless-shell && rm -
 COPY --from=build /app/.next/standalone ./
 COPY --from=build /app/.next/static ./.next/static
 COPY --from=build /app/src/db/migrations ./src/db/migrations
+# Output tracing misses files Playwright loads at runtime (browsers.json and others).
+COPY --from=build /app/node_modules/.pnpm/playwright-core@1.63.0 ./node_modules/.pnpm/playwright-core@1.63.0
+COPY --from=build /app/node_modules/.pnpm/playwright@1.63.0 ./node_modules/.pnpm/playwright@1.63.0
 USER node
 EXPOSE 3000
 CMD ["node", "server.js"]
