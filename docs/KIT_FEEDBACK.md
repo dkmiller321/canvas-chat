@@ -106,3 +106,14 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 8. Settle D9 "accept before apply" in the PRD (#22).
 9. Put the AI SDK gotchas in CLAUDE.md: `generateMessageId`, `onError` for tool errors, no `react-dom/server` (#9, #13, #19).
 10. Speed up the tests-first baseline with a short timeout (#5).
+
+### 2026-09-24 · After delivery: design pass
+
+27. **[prd] The kit had no visual design direction.** "Open WebUI / Open Canvas / Excalidraw parity" was specified functionally only. The first build met every test but looked plain: raw-looking documents and uncoloured diagrams. The user had to supply reference screenshots after delivery.
+    - *Kit change:* add a short `docs/DESIGN.md` with 2–3 reference screenshots, a type scale (UI vs reading font), a diagram house style (palette, fill style, grid), and a "definition of done" that includes an MCP screenshot review against the references at stages 3, 5 and 7.
+
+28. **[contract] Tests guard behaviour, not aesthetics.** Every restyle passed all 28 specs unchanged, which is good, but it also means nothing caught the plain look.
+    - *Kit change:* add a screenshot checkpoint to each UI stage in CLAUDE.md's workflow ("take MCP screenshots of the stage's screens, compare with DESIGN.md references, list gaps"). Optionally add Playwright visual snapshots for 3–4 key screens once the design settles.
+
+29. **[process] The mock only produces trivial content** (a two-heading coffee guide, a three-box flowchart), so the UI was never exercised with realistic documents: tables, long lists, code, subgraphs.
+    - *Kit change:* add a mock script with a rich document (tables, nested lists, quote, code) and a larger diagram (subgraph, decision diamond, data store), so both specs and screenshots cover real layouts.

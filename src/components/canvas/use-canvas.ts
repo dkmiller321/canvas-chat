@@ -60,6 +60,8 @@ export function useCanvas({
   const [doc, setDoc] = useState<OpenDoc | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [rewriting, setRewriting] = useState(false);
+  /** Autosave status for the open artifact, shown under its title. */
+  const [saveState, setSaveState] = useState<"saved" | "unsaved" | "saving">("saved");
 
   const openIdRef = useRef(openId);
   openIdRef.current = openId;
@@ -137,7 +139,11 @@ export function useCanvas({
     async ({ id, content }: SaveJob) => {
       const current = docRef.current;
       if (!current || current.artifact.id !== id || !current.artifact.currentVersion) return;
-      if (content === current.artifact.currentVersion.content) return;
+      if (content === current.artifact.currentVersion.content) {
+        setSaveState("saved");
+        return;
+      }
+      setSaveState("saving");
       const res = await fetch(`/api/artifacts/${id}/versions`, {
         method: "POST",
         headers: { "content-type": "application/json" },
@@ -158,6 +164,7 @@ export function useCanvas({
       docRef.current = next(docRef.current);
       setDoc(next);
       setArtifacts((list) => list.map((a) => (a.id === id ? { ...a, version: version.versionNo } : a)));
+      if (!pending.current) setSaveState("saved");
     },
     [load],
   );
@@ -174,7 +181,10 @@ export function useCanvas({
     const captured: SaveJob = { id: job.id, content: job.get() };
     const run = (inFlight.current ?? Promise.resolve())
       .then(() => save(captured))
-      .catch((e: unknown) => setError(`Autosave failed: ${e instanceof Error ? e.message : String(e)}`));
+      .catch((e: unknown) => {
+        setSaveState("unsaved");
+        setError(`Autosave failed: ${e instanceof Error ? e.message : String(e)}`);
+      });
     inFlight.current = run;
     return run;
   }, [save]);
@@ -185,6 +195,7 @@ export function useCanvas({
       if (!id) return;
       if (pending.current) clearTimeout(pending.current.timer);
       pending.current = { id, get, timer: setTimeout(runSave, AUTOSAVE_MS) };
+      setSaveState("unsaved");
     },
     [runSave],
   );
@@ -335,6 +346,7 @@ export function useCanvas({
     doc,
     error,
     rewriting,
+    saveState,
     openArtifact,
     onUserChange,
     flush,

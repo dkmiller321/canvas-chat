@@ -119,7 +119,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
         initialData={{
           elements: initial.elements,
           files: initial.files as never,
-          appState: { viewBackgroundColor: initial.background },
+          appState: { viewBackgroundColor: initial.background, gridModeEnabled: true, gridSize: 20, gridStep: 5 },
           scrollToContent: true,
         }}
         viewModeEnabled={!editable}

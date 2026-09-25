@@ -1,3 +1,4 @@
+import { arrowStyle, paletteIndex, shapeStyle } from "@/lib/diagram-style";
 import { ToolError } from "./document";
 import type { DiagramOperation } from "./schemas";
 import { labelOf, type Scene, type SceneElement } from "./scene";
@@ -199,6 +200,7 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
           const from = resolve(op.from, i);
           const to = resolve(op.to, i);
           const arrow = base("arrow", { x: 0, y: 0, width: 0, height: 0 }, {
+            ...arrowStyle,
             startArrowhead: null,
             endArrowhead: "arrow",
             elbowed: false,
@@ -218,6 +220,8 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
           op.type === "text"
             ? textElement(op.label ?? "", box, null)
             : base(op.type, box, {
+                // New shapes continue the diagram's palette unless the model picked colours.
+                ...shapeStyle(paletteIndex(elements)),
                 ...(op.strokeColor && { strokeColor: op.strokeColor }),
                 ...(op.backgroundColor && { backgroundColor: op.backgroundColor }),
               });

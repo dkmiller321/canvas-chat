@@ -27,9 +27,10 @@ const components: Components = {
   },
 };
 
-export const Markdown = memo(function Markdown({ text }: { text: string }) {
+/** `className` defaults to chat typography; pass "" to inherit the surrounding document's. */
+export const Markdown = memo(function Markdown({ text, className = "prose-chat" }: { text: string; className?: string }) {
   return (
-    <div className="prose-chat">
+    <div className={className}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
         {text}
       </ReactMarkdown>

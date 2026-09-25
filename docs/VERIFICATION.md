@@ -219,3 +219,17 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 3. G3 skeleton diagrams, the D9 diff view and non-scripted "Ask AI" instructions have no E2E scenario (unit tests and manual checks only).
 4. Highlight-to-edit replaces the first exact occurrence of the selected Markdown (DECISIONS #13).
 5. The GitHub Actions workflow has never run, because the repo has no remote (DECISIONS #7).
+
+## Design pass (2026-09-24, after final acceptance)
+
+User-requested visual improvements (DECISIONS #17). No test IDs or assertions changed.
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 52 passed / 0 failed (adds `diagram-style` tests: palette cycling, group frames, model-chosen colours kept) |
+| `docker compose up -d --build` then `BASE_URL=http://127.0.0.1:3000 pnpm test:e2e` | 28 passed / 0 failed |
+
+MCP screenshots of the rebuilt container are in `screenshots/v2-*.png`, with a PDF in `screenshots/v2-coffee-guide.pdf`. Checked visually: document typography (light and dark), Ask AI with the selection kept highlighted and the box below it, the formatted Changes view, version navigation, floating quick actions, and the diagram house style before and after "Add a cache".
+
+Known issue: the container has no Source Serif/Inter system fonts, so the PDF export falls back to Liberation/DejaVu. It is still clean, but doesn't match the editor exactly.

@@ -1,5 +1,7 @@
 "use client";
 
+import { styleElements } from "@/lib/diagram-style";
+
 /**
  * Browser-only conversion of the AI's diagram input into an Excalidraw scene
  * (docs/DECISIONS.md #2): Mermaid and element skeletons both need the DOM.
@@ -23,11 +25,11 @@ export async function mermaidToScene(mermaid: string): Promise<string> {
     import("@excalidraw/mermaid-to-excalidraw"),
     import("@excalidraw/excalidraw"),
   ]);
-  const { elements, files } = await parseMermaidToExcalidraw(mermaid);
-  return scene(convertToExcalidrawElements(elements as Skeleton, { regenerateIds: true }), files ?? {});
+  const { elements, files } = await parseMermaidToExcalidraw(mermaid, { themeVariables: { fontSize: "20px" } });
+  return scene(styleElements(convertToExcalidrawElements(elements as Skeleton, { regenerateIds: true })), files ?? {});
 }
 
 export async function skeletonToScene(skeleton: unknown[]): Promise<string> {
   const { convertToExcalidrawElements } = await import("@excalidraw/excalidraw");
-  return scene(convertToExcalidrawElements(skeleton as Skeleton, { regenerateIds: true }));
+  return scene(styleElements(convertToExcalidrawElements(skeleton as Skeleton, { regenerateIds: true })));
 }

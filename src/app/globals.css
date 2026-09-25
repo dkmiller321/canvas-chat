@@ -55,6 +55,9 @@
 }
 
 @theme inline {
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-source-serif), Georgia, "Times New Roman", serif;
+  --font-mono: var(--font-jetbrains), ui-monospace, "SFMono-Regular", Consolas, monospace;
   --radius-sm: calc(var(--radius) - 2px);
   --radius-md: var(--radius);
   --radius-lg: calc(var(--radius) + 4px);
@@ -88,63 +91,100 @@
   }
   html,
   body {
-    @apply h-full bg-background text-foreground antialiased;
+    @apply h-full bg-background font-sans text-foreground antialiased;
   }
 }
 
-/* Markdown in chat messages and the document editor (no typography plugin). */
+/*
+ * Markdown typography (no typography plugin). Chat uses the UI sans at 15px;
+ * documents read like a page: serif body, a centred measure, generous rhythm.
+ */
 @layer components {
-  .prose-chat,
+  .prose-chat {
+    @apply text-[15px] leading-7;
+  }
   .doc-prose {
-    @apply leading-relaxed;
+    @apply mx-auto max-w-[70ch] font-serif text-[18px] leading-[1.75] text-foreground;
   }
-  :is(.prose-chat, .doc-prose) > * + * {
-    @apply mt-3;
+  .prose-chat > * + * {
+    @apply mt-4;
   }
-  :is(.prose-chat, .doc-prose) h1 {
-    @apply mt-6 text-2xl font-semibold tracking-tight;
+  /* Documents space by element margins, so wrapped blocks (preview, diff) keep the rhythm. */
+  .doc-prose :is(p, ul, ol, pre, table, blockquote) {
+    @apply mt-0 mb-4;
   }
-  :is(.prose-chat, .doc-prose) h2 {
-    @apply mt-5 text-xl font-semibold tracking-tight;
+  :is(.prose-chat, .doc-prose) :is(h1, h2, h3, h4) {
+    @apply font-sans font-semibold tracking-tight text-foreground;
   }
-  :is(.prose-chat, .doc-prose) h3 {
-    @apply mt-4 text-lg font-semibold;
+  .prose-chat h1 {
+    @apply mt-6 text-xl;
+  }
+  .prose-chat h2 {
+    @apply mt-5 text-lg;
+  }
+  .prose-chat h3 {
+    @apply mt-4 text-base;
+  }
+  .doc-prose h1 {
+    @apply mt-2 mb-6 text-[2.1rem] leading-tight font-bold;
+  }
+  .doc-prose h2 {
+    @apply mt-10 mb-4 border-b pb-2 text-[1.45rem] leading-snug;
+  }
+  .doc-prose h3 {
+    @apply mt-8 mb-2 text-[1.15rem];
   }
   :is(.prose-chat, .doc-prose) :is(h1, h2, h3):first-child {
     @apply mt-0;
   }
+  .prose-chat :is(h1, h2, h3) + * {
+    @apply mt-3;
+  }
   :is(.prose-chat, .doc-prose) ul {
-    @apply list-disc pl-6;
+    @apply list-disc pl-6 marker:text-muted-foreground;
   }
   :is(.prose-chat, .doc-prose) ol {
-    @apply list-decimal pl-6;
+    @apply list-decimal pl-6 marker:text-muted-foreground;
   }
   :is(.prose-chat, .doc-prose) li + li {
-    @apply mt-1;
+    @apply mt-1.5;
+  }
+  :is(.prose-chat, .doc-prose) li > p {
+    @apply m-0;
   }
   :is(.prose-chat, .doc-prose) a {
-    @apply text-primary underline underline-offset-2;
+    @apply text-primary underline decoration-primary/40 underline-offset-[3px] hover:decoration-primary;
+  }
+  :is(.prose-chat, .doc-prose) strong {
+    @apply font-semibold text-foreground;
   }
   :is(.prose-chat, .doc-prose) blockquote {
-    @apply border-l-4 pl-4 text-muted-foreground;
+    @apply border-l-[3px] border-primary/50 pl-5 text-muted-foreground italic;
   }
   :is(.prose-chat, .doc-prose) :not(pre) > code {
-    @apply rounded bg-muted px-1 py-0.5 font-mono text-[0.85em];
+    @apply rounded-md bg-muted px-1.5 py-0.5 font-mono text-[0.82em] font-normal not-italic;
   }
   .doc-prose pre {
-    @apply overflow-x-auto rounded-lg border bg-muted/50 p-3 font-mono text-sm;
+    @apply my-6 overflow-x-auto rounded-xl border bg-muted/60 px-5 py-4 font-mono text-[0.8rem] leading-relaxed;
   }
   :is(.prose-chat, .doc-prose) table {
-    @apply w-full border-collapse text-sm;
+    @apply my-6 w-full border-collapse font-sans text-[0.9rem];
   }
   :is(.prose-chat, .doc-prose) :is(th, td) {
-    @apply border px-2 py-1 text-left align-top;
+    @apply border-b px-3 py-2 text-left align-top;
   }
   :is(.prose-chat, .doc-prose) th {
-    @apply bg-muted font-semibold;
+    @apply border-b-2 font-semibold text-foreground;
+  }
+  .doc-prose table p {
+    @apply m-0;
   }
   :is(.prose-chat, .doc-prose) hr {
-    @apply my-6;
+    @apply my-10 border-border;
+  }
+  /* Selection kept visible while the Ask AI box has focus. */
+  .doc-prose .ask-ai-selection {
+    @apply rounded-sm bg-primary/20;
   }
 }
 

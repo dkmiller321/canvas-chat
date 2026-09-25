@@ -2,17 +2,24 @@ import { chromium, type Browser } from "playwright";
 import { escapeHtml, markdownToHtmlBody } from "./html";
 
 const STYLES = `
-  body { font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; font-size: 11pt; line-height: 1.55; color: #1f2328; }
-  h1, h2, h3, h4 { line-height: 1.25; margin: 1.2em 0 0.5em; }
-  h1 { font-size: 22pt; } h2 { font-size: 16pt; } h3 { font-size: 13pt; }
-  p, ul, ol, pre, table, blockquote { margin: 0 0 0.8em; }
-  code { font-family: Consolas, "SFMono-Regular", monospace; font-size: 0.9em; background: #f3f4f6; padding: 0.1em 0.3em; border-radius: 3px; }
-  pre { background: #f3f4f6; padding: 0.8em; border-radius: 6px; white-space: pre-wrap; }
+  @page { margin: 22mm 20mm; }
+  body { font-family: "Source Serif 4", "Source Serif Pro", Georgia, "DejaVu Serif", serif; font-size: 11.5pt; line-height: 1.65; color: #1f2328; }
+  h1, h2, h3, h4, th { font-family: Inter, "Segoe UI", "Helvetica Neue", "DejaVu Sans", Arial, sans-serif; line-height: 1.25; }
+  h1 { font-size: 24pt; margin: 0 0 14pt; letter-spacing: -0.01em; }
+  h2 { font-size: 15pt; margin: 20pt 0 8pt; padding-bottom: 4pt; border-bottom: 1px solid #d8dee4; }
+  h3 { font-size: 12.5pt; margin: 16pt 0 6pt; }
+  p, ul, ol, pre, table, blockquote { margin: 0 0 9pt; }
+  li + li { margin-top: 3pt; }
+  li > p { margin: 0; }
+  code { font-family: "JetBrains Mono", Consolas, "DejaVu Sans Mono", monospace; font-size: 0.85em; background: #f3f4f6; padding: 0.1em 0.35em; border-radius: 4px; }
+  pre { background: #f6f8fa; border: 1px solid #e5e7eb; padding: 10pt 12pt; border-radius: 8px; white-space: pre-wrap; }
   pre code { background: none; padding: 0; }
-  blockquote { border-left: 3px solid #d0d7de; padding-left: 1em; color: #57606a; }
-  table { border-collapse: collapse; width: 100%; }
-  th, td { border: 1px solid #d0d7de; padding: 4px 8px; text-align: left; vertical-align: top; }
-  th { background: #f6f8fa; }
+  blockquote { border-left: 3px solid #8b9cf6; padding-left: 12pt; color: #57606a; font-style: italic; }
+  table { border-collapse: collapse; width: 100%; font-family: Inter, "Segoe UI", "DejaVu Sans", Arial, sans-serif; font-size: 10pt; }
+  th, td { border-bottom: 1px solid #d8dee4; padding: 5pt 8pt; text-align: left; vertical-align: top; }
+  th { border-bottom-width: 2px; }
+  td p, th p { margin: 0; }
+  hr { border: none; border-top: 1px solid #d8dee4; margin: 18pt 0; }
   a { color: #0969da; }
 `;
 
@@ -36,7 +43,7 @@ export async function markdownToPdf(markdown: string, title: string): Promise<Bu
   try {
     const page = await context.newPage();
     await page.setContent(markdownToHtml(markdown, title), { waitUntil: "load" });
-    return await page.pdf({ format: "A4", margin: { top: "20mm", bottom: "20mm", left: "18mm", right: "18mm" } });
+    return await page.pdf({ format: "A4", preferCSSPageSize: true });
   } finally {
     await context.close();
   }
