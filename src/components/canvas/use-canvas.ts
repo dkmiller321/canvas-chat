@@ -348,6 +348,28 @@ export function useCanvas({
     [flush, load],
   );
 
+  /** Redraw the open diagram from edited Mermaid source (G8); saved as a user version. */
+  const applyMermaid = useCallback(
+    async (mermaid: string): Promise<string | null> => {
+      const current = docRef.current;
+      if (!current?.artifact.currentVersion) return "Nothing to apply to.";
+      await flush();
+      try {
+        const content = await mermaidToScene(mermaid);
+        await fetchJson<VersionDto>(`/api/artifacts/${current.artifact.id}/versions`, {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ content, author: "user", baseVersionNo: current.artifact.currentVersion.versionNo }),
+        });
+        await load(current.artifact.id);
+        return null;
+      } catch (e) {
+        return e instanceof Error ? e.message : String(e);
+      }
+    },
+    [flush, load],
+  );
+
   /** Change a code artifact's language (metadata only, not a new version). */
   const setLanguage = useCallback(async (language: string) => {
     const id = openIdRef.current;
@@ -516,6 +538,7 @@ export function useCanvas({
     reloadOpen,
     setLanguage,
     rewriteDiagram,
+    applyMermaid,
   };
 }
 

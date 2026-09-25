@@ -338,3 +338,20 @@ Surprises and fixes:
 - Tidy-up could leave the diagram partly off-screen; the view now scrolls to fit.
 - The "Ask AI about N selected" pill covered Excalidraw's hint text; it moved to the bottom of the canvas.
 - Not ours: dropping one shape directly on top of another can leave an arrow behind (Excalidraw's behaviour).
+
+## Stage 14 — More diagram types (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 84 passed (adds the Mermaid fallback converter for class/state/ER/mind maps, back-edge routing, label-aware gaps, shared colours for repeated labels) |
+| `pnpm test:e2e --grep "@stage14 "` | 1st run 0/2 (class diagrams came out as an image); after the converter 2/2 |
+| `pnpm test:e2e --grep "@stage([0-9]\|1[0-4]) "` | 46 passed / 0 failed |
+
+MCP walkthrough (screenshots `v11-24-type-*`, `v11-25`): all five types are editable shapes and arrows, with no images and no console errors.
+- Sequence: native conversion; Alice/Bob keep one colour for their top and bottom boxes.
+- Class: `Dog → Animal` inheritance. State: a start marker, and "stop" curves back below "start". ER: `CUSTOMER — places (1 → 0..*) — ORDER`. Mind map: the root ellipse fans out to branches.
+- E2E-45: the Mermaid source panel shows the source; editing the mind map to add sub-branches and applying redraws it as a user version and fits it into view.
+
+Surprises and fixes:
+- mermaid-to-excalidraw 2.2 lists class/state/ER support, but in this build it throws internally for them and falls back to a flat image. Our converter now handles these types directly (DECISIONS #20 updated in spirit: it covers four types, not just mind maps).
+- The first screenshots showed grey sequence actors (Mermaid's fills counted as "chosen"), a state back-arrow pointing into empty space, an ER label over both boxes, and a redrawn mind map partly off-screen. All four were fixed and re-checked.

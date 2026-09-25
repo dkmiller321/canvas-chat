@@ -69,9 +69,24 @@ export function paletteIndex(elements: El[]): number {
  * frames (Mermaid subgraphs) and get a dashed outline instead of a fill. Colours
  * the model set explicitly (a non-transparent fill) are kept.
  */
+/** Light greys and white are Mermaid's defaults, not a colour the model chose. */
+function isDefaultFill(color: unknown): boolean {
+  if (typeof color !== "string" || color === "transparent") return true;
+  const m = color.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);
+  if (!m) return false;
+  const [r, g, b] = [m[1], m[2], m[3]].map((h) => parseInt(h!, 16)) as [number, number, number];
+  return Math.max(r, g, b) - Math.min(r, g, b) < 16 && Math.min(r, g, b) > 200;
+}
+
 export function styleElements<T extends El>(elements: T[]): T[] {
   const shapes = elements.filter((e) => SHAPES.has(e.type) && !e.isDeleted);
   const frames = new Set(shapes.filter((s) => shapes.some((o) => contains(s, o))).map((s) => s.id));
+  // Label of each shape, so repeated participants (e.g. sequence diagram actors) share a colour.
+  const labelOf = new Map<string, string>();
+  for (const e of elements) {
+    if (e.type === "text" && e.containerId && typeof e.text === "string") labelOf.set(e.containerId, e.text);
+  }
+  const colourOfLabel = new Map<string, number>();
   let n = 0;
   return elements.map((e) => {
     if (e.type === "arrow") return { ...e, ...arrowStyle };
@@ -87,14 +102,14 @@ export function styleElements<T extends El>(elements: T[]): T[] {
         roughness: 0,
       };
     }
-    const custom = e.backgroundColor && e.backgroundColor !== "transparent";
+    const custom = !isDefaultFill(e.backgroundColor);
     // Rounded corners, matching shapes the AI adds later.
     const round = e.type === "ellipse" ? {} : { roundness: { type: 3 } };
-    const styled = custom
-      ? { ...e, ...round, fillStyle: "hachure", strokeWidth: 2 }
-      : { ...e, ...round, ...shapeStyle(n) };
-    n++;
-    return styled;
+    if (custom) return { ...e, ...round, fillStyle: "hachure", strokeWidth: 2 };
+    const label = labelOf.get(e.id);
+    const index = label !== undefined && colourOfLabel.has(label) ? colourOfLabel.get(label)! : n++;
+    if (label !== undefined) colourOfLabel.set(label, index);
+    return { ...e, ...round, ...shapeStyle(index) };
   });
 }
 

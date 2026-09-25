@@ -46,6 +46,7 @@ import { Markdown } from "@/components/chat/markdown";
 import { DiffView } from "./diff-view";
 import { DocumentEditor, type DocumentEditorHandle } from "./document-editor";
 import type { DiagramEditorHandle } from "./diagram-editor";
+import { MermaidSourcePanel } from "./mermaid-source-panel";
 import type { Canvas } from "./use-canvas";
 
 // CodeMirror and its language packs load only when a code artifact opens.
@@ -108,6 +109,7 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
   /** Raw-Markdown view (D12): the text being edited, or null when the rich editor is shown. */
   const [sourceText, setSourceText] = useState<string | null>(null);
   const [outline, setOutline] = useState<"auto" | "show" | "hide">("auto");
+  const [showMermaid, setShowMermaid] = useState(false);
   const [words, setWords] = useState(0);
 
   // Leaving an artifact leaves its source view and any open rename.
@@ -454,6 +456,17 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
                   </DropdownMenuContent>
                 </DropdownMenu>
                 <Button
+                  data-testid="diagram-source"
+                  size="icon-sm"
+                  variant={showMermaid ? "secondary" : "ghost"}
+                  aria-pressed={showMermaid}
+                  aria-label="Mermaid source"
+                  title="Mermaid source"
+                  onClick={() => setShowMermaid((s) => !s)}
+                >
+                  <Code2 />
+                </Button>
+                <Button
                   data-testid="diagram-tidy"
                   size="icon-sm"
                   variant="ghost"
@@ -613,6 +626,15 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
             onUserChange={canvas.onUserChange}
             onAskAi={(ids, instruction) => void canvas.rewriteDiagram(ids, instruction, model)}
             testHook={testHooks}
+          />
+        )}
+        {doc && artifact?.kind === "diagram" && showMermaid && (
+          <MermaidSourcePanel
+            key={doc.contentKey}
+            content={doc.content}
+            disabled={!editable}
+            onApply={canvas.applyMermaid}
+            onClose={() => setShowMermaid(false)}
           />
         )}
 

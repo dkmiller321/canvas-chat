@@ -93,3 +93,38 @@ describe("applyPreset (G7)", () => {
     expect(after[0]!.version).toBe(2);
   });
 });
+
+describe("arrow routing", () => {
+  it("bends an arrow that points back up the flow instead of overlapping the forward one", () => {
+    const out = tidyLayout([
+      ...box("idle", 0, 0),
+      ...box("run", 300, 0),
+      arrow("go", "idle", "run"),
+      arrow("back", "run", "idle"),
+    ]);
+    const back = out.find((e) => e.id === "back")!;
+    const go = out.find((e) => e.id === "go")!;
+    expect((go.points as unknown[]).length).toBe(2);
+    expect((back.points as unknown[]).length).toBe(4);
+    expect(back.startBinding).toEqual({ elementId: "run" });
+  });
+});
+
+describe("styleElements", () => {
+  it("treats Mermaid's grey fills as unset and colours repeated labels the same", async () => {
+    const { styleElements } = await import("./diagram-style");
+    const grey = { backgroundColor: "#eaeaea" };
+    const out = styleElements([
+      { ...box("a1", 0, 0)[0]!, ...grey },
+      { ...box("a1", 0, 0)[1]!, text: "Alice" },
+      { ...box("b1", 200, 0)[0]!, ...grey },
+      { ...box("b1", 200, 0)[1]!, text: "Bob" },
+      { ...box("a2", 0, 300)[0]!, ...grey },
+      { ...box("a2", 0, 300)[1]!, text: "Alice" },
+    ]);
+    const fill = (id: string) => (out.find((e) => e.id === id) as { backgroundColor?: unknown }).backgroundColor;
+    expect(fill("a1")).not.toBe("#eaeaea");
+    expect(fill("a1")).toBe(fill("a2"));
+    expect(fill("a1")).not.toBe(fill("b1"));
+  });
+});

@@ -54,6 +54,7 @@ type Props = {
 };
 
 type StoredScene = {
+  mermaid?: unknown;
   elements?: unknown[];
   appState?: { viewBackgroundColor?: string };
   files?: Record<string, unknown>;
@@ -65,7 +66,12 @@ function parse(content: string) {
     repairBindings: true,
     refreshDimensions: true,
   });
-  return { elements, files: scene.files ?? {}, background: scene.appState?.viewBackgroundColor ?? "#ffffff" };
+  return {
+    elements,
+    files: scene.files ?? {},
+    background: scene.appState?.viewBackgroundColor ?? "#ffffff",
+    mermaid: typeof scene.mermaid === "string" ? scene.mermaid : undefined,
+  };
 }
 
 function useDarkTheme() {
@@ -110,6 +116,8 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   }, [api, testHook]);
   const dark = useDarkTheme();
   const initial = useMemo(() => parse(content), []); // eslint-disable-line react-hooks/exhaustive-deps -- first load only
+  // Mermaid source travels with the scene so the source panel can show it after manual edits.
+  const mermaidRef = useRef(initial.mermaid);
   // Version hash of what was last loaded or saved; onChange with a different hash is a user edit.
   const savedHash = useRef(hashElementsVersion(initial.elements as Elements));
   const onUserChangeRef = useRef(onUserChange);
@@ -120,8 +128,14 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
     if (!api || shownKey.current === contentKey) return;
     shownKey.current = contentKey;
     const next = parse(content);
+    mermaidRef.current = next.mermaid;
     savedHash.current = hashElementsVersion(next.elements as Elements);
+    const before = new Set(api.getSceneElements().map((e) => e.id));
+    const kept = next.elements.filter((e) => before.has(e.id)).length;
     api.updateScene({ elements: next.elements, captureUpdate: CaptureUpdateAction.NEVER });
+    // A redraw (new Mermaid source, import) replaces most elements: bring it into view.
+    if (kept < next.elements.length / 2)
+      api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9 });
   }, [api, content, contentKey]);
 
   const serialize = () => {
@@ -133,6 +147,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
       elements: getNonDeletedElements(api.getSceneElements()),
       appState: { viewBackgroundColor: api.getAppState().viewBackgroundColor },
       files: api.getFiles(),
+      ...(mermaidRef.current ? { mermaid: mermaidRef.current } : {}),
     });
   };
 

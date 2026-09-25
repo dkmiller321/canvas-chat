@@ -31,6 +31,8 @@ export type Scene = {
   elements: SceneElement[];
   appState?: Record<string, unknown>;
   files?: Record<string, unknown>;
+  /** Mermaid source the diagram was drawn from, kept for the source panel (G8). */
+  mermaid?: string;
 };
 
 export function parseScene(content: string): Scene {

@@ -109,6 +109,16 @@ export function tidyLayout<T extends El>(elements: T[]): T[] {
   const midY = (Math.min(...nodes.map((n) => n.y)) + Math.max(...nodes.map((n) => n.y + n.height))) / 2;
   const placed = new Map<string, Box>();
   let x = originX;
+  // A gap must fit the widest label on the arrows leaving that column.
+  const labelWidth = new Map<string, number>();
+  for (const el of live) {
+    if (el.type === "text" && el.containerId) labelWidth.set(el.containerId, el.width);
+  }
+  const gapAfter = (col: T[]) => {
+    const ids = new Set(col.map((n) => n.id));
+    const widest = Math.max(0, ...edges.filter((e) => ids.has(e.from)).map((e) => labelWidth.get(e.arrow.id) ?? 0));
+    return Math.max(COLUMN_GAP, widest + 60);
+  };
   for (const col of columns) {
     if (!col) continue;
     const width = Math.max(...col.map((n) => n.width));
@@ -118,7 +128,7 @@ export function tidyLayout<T extends El>(elements: T[]): T[] {
       placed.set(n.id, { x: x + (width - n.width) / 2, y, width: n.width, height: n.height });
       y += n.height + ROW_GAP;
     }
-    x += width + COLUMN_GAP;
+    x += width + gapAfter(col);
   }
 
   const moved = new Map<string, { dx: number; dy: number }>();
@@ -140,9 +150,33 @@ export function tidyLayout<T extends El>(elements: T[]): T[] {
     const parent = e.containerId ? moved.get(e.containerId) : undefined;
     if (parent) return bump(e, { x: e.x + parent.dx, y: e.y + parent.dy });
     if (e.type === "arrow") {
-      const from = e.startBinding?.elementId ? placed.get(e.startBinding.elementId) : undefined;
-      const to = e.endBinding?.elementId ? placed.get(e.endBinding.elementId) : undefined;
+      const fromId = e.startBinding?.elementId;
+      const toId = e.endBinding?.elementId;
+      const from = fromId ? placed.get(fromId) : undefined;
+      const to = toId ? placed.get(toId) : undefined;
       if (!from || !to) return e;
+      // An arrow pointing back up the flow bends below the shapes so it doesn't
+      // lie on top of the forward arrow between the same pair.
+      const backwards = (rank.get(toId!) ?? 0) <= (rank.get(fromId!) ?? 0) && fromId !== toId;
+      if (backwards) {
+        const start = { x: from.x + from.width / 2, y: from.y + from.height };
+        const end = { x: to.x + to.width / 2, y: to.y + to.height };
+        const dip = Math.max(start.y, end.y) + 50;
+        const points: [number, number][] = [
+          [0, 0],
+          [0, dip - start.y],
+          [end.x - start.x, dip - start.y],
+          [end.x - start.x, end.y - start.y],
+        ];
+        return bump(e, {
+          x: start.x,
+          y: start.y,
+          width: Math.abs(end.x - start.x),
+          height: dip - Math.min(start.y, end.y),
+          points,
+          roundness: { type: 2 },
+        });
+      }
       const start = edgePoint(from, center(to));
       const end = edgePoint(to, center(from));
       return bump(e, {
