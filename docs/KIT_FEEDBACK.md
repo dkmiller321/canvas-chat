@@ -147,3 +147,8 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
     - *Kit change:* make "MCP screenshot review, list defects, fix, re-shoot" a required step of every UI stage in CLAUDE.md, not an optional extra. It has the best defects-found-per-minute of any check in this build.
 
 38. **[process] Unit-testing pure transforms first paid off again.** Layout, presets, the Mermaid fallback, the selection scope and the export renderers were all pure and unit-tested before wiring, so stages 12–15 mostly passed their E2E specs on the first run.
+
+### 2026-09-25 · README
+
+39. **[process] README screenshots had to be re-shot from scratch.** The build-time screenshots were unusable for a README: a mix of UI generations, the Next.js dev badge, a menu caught mid-fade, placeholder "Mock Title" chats, and toy-sized mock diagrams. Class and ER diagram layouts still show crossing or crowded edges with more than about four nodes (a real gap that small mock scripts never exercised).
+    - *Kit change:* add a final "README & showcase" stage: a seeded demo script (rich doc, named chats, larger diagrams of each type), shot against the production build at a fixed viewport into a committed `docs/images/`. Add a mock script with a 6+ node class diagram and ER diagram to E2E so layout crowding is caught during the build.
