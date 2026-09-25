@@ -2,13 +2,19 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
-import { PanelRightOpen } from "lucide-react";
+import { PanelRightOpen, PenLine, Plus, Shapes } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useAppState } from "@/components/app-state";
 import { CanvasPanel } from "@/components/canvas/canvas-panel";
 import { useCanvas } from "@/components/canvas/use-canvas";
 import { Button } from "@/components/ui/button";
-import type { ArtifactSummary } from "@/lib/artifacts";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import type { ArtifactDto, ArtifactKind, ArtifactSummary } from "@/lib/artifacts";
 import { CanvasActionsContext } from "./canvas-actions";
 import { Composer } from "./composer";
 import { AssistantMessage, UserMessage } from "./message";
@@ -23,7 +29,13 @@ export type ChatViewProps = {
   allowedModels: string[];
 };
 
-export function ChatView({ conversationId, initialMessages, initialArtifacts, initialModel, allowedModels }: ChatViewProps) {
+export function ChatView({
+  conversationId,
+  initialMessages,
+  initialArtifacts,
+  initialModel,
+  allowedModels,
+}: ChatViewProps) {
   const [id] = useState(() => conversationId ?? crypto.randomUUID());
   const [model, setModel] = useState(initialModel);
   const modelRef = useRef(model);
@@ -77,6 +89,23 @@ export function ChatView({ conversationId, initialMessages, initialArtifacts, in
     }
   }, [status, conversationsChanged]);
 
+  /** Blank artifact without the AI (D12); creates the conversation if this is a new chat. */
+  async function createBlank(kind: ArtifactKind) {
+    await canvas.flush();
+    const res = await fetch(`/api/conversations/${id}/artifacts`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ kind, model: modelRef.current }),
+    });
+    if (!res.ok) return;
+    if (!persisted.current) {
+      persisted.current = true;
+      window.history.replaceState(null, "", `/c/${id}`);
+    }
+    conversationsChanged();
+    canvas.addArtifact((await res.json()) as ArtifactDto);
+  }
+
   function changeModel(next: string) {
     setModel(next);
     if (persisted.current) {
@@ -95,12 +124,30 @@ export function ChatView({ conversationId, initialMessages, initialArtifacts, in
     bottomRef.current?.scrollIntoView({ block: "end" });
   }, [messages]);
 
-  const canvasActions = useMemo(() => ({ openArtifact: canvas.openArtifact }), [canvas.openArtifact]);
+  const canvasActions = useMemo(
+    () => ({ openArtifact: canvas.openArtifact, liveIds: new Set(canvas.artifacts.map((a) => a.id)) }),
+    [canvas.openArtifact, canvas.artifacts],
+  );
 
   const chat = (
     <div className="flex h-full min-w-0 flex-1 flex-col">
       <header className="flex h-12 shrink-0 items-center gap-2 border-b px-4">
         <ModelPicker value={model} options={allowedModels} onChange={changeModel} disabled={busy} />
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button data-testid="new-artifact" variant="ghost" size="sm" disabled={busy}>
+              <Plus /> New
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem data-testid="new-document" onSelect={() => void createBlank("document")}>
+              <PenLine /> Document
+            </DropdownMenuItem>
+            <DropdownMenuItem data-testid="new-diagram" onSelect={() => void createBlank("diagram")}>
+              <Shapes /> Diagram
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         {!canvas.panelOpen && canvas.artifacts.length > 0 && (
           <Button
             variant="ghost"
@@ -159,7 +206,10 @@ export function ChatView({ conversationId, initialMessages, initialArtifacts, in
 
   return (
     <CanvasActionsContext value={canvasActions}>
-      <SplitPane left={chat} right={canvas.panelOpen ? <CanvasPanel canvas={canvas} chatBusy={busy} model={model} /> : null} />
+      <SplitPane
+        left={chat}
+        right={canvas.panelOpen ? <CanvasPanel canvas={canvas} chatBusy={busy} model={model} /> : null}
+      />
     </CanvasActionsContext>
   );
 }

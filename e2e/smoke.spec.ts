@@ -49,7 +49,7 @@ test("SMOKE-4 @smoke diagram", async ({ request }) => {
   const id = await cards.last().getAttribute("data-artifact-id");
   if (!id) throw new Error("no artifact id");
   await expect
-    .poll(async () => sceneLabels((await getArtifact(request, id)).currentVersion?.content ?? "{\"elements\":[]}"), {
+    .poll(async () => sceneLabels((await getArtifact(request, id)).currentVersion?.content ?? '{"elements":[]}'), {
       timeout: 60_000,
     })
     .toEqual(expect.arrayContaining(["Start", "Process", "End"]));

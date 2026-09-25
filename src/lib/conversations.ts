@@ -21,11 +21,7 @@ export async function getConversationRow(id: string) {
 export async function getConversation(id: string): Promise<ConversationDto | null> {
   const row = await getConversationRow(id);
   if (!row) return null;
-  const msgs = await db
-    .select()
-    .from(messages)
-    .where(eq(messages.conversationId, id))
-    .orderBy(asc(messages.seq));
+  const msgs = await db.select().from(messages).where(eq(messages.conversationId, id)).orderBy(asc(messages.seq));
   return {
     id: row.id,
     title: row.title,

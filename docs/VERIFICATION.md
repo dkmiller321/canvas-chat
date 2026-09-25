@@ -233,3 +233,24 @@ User-requested visual improvements (DECISIONS #17). No test IDs or assertions ch
 MCP screenshots of the rebuilt container are in `screenshots/v2-*.png`, with a PDF in `screenshots/v2-coffee-guide.pdf`. Checked visually: document typography (light and dark), Ask AI with the selection kept highlighted and the box below it, the formatted Changes view, version navigation, floating quick actions, and the diagram house style before and after "Add a cache".
 
 Known issue: the container has no Source Serif/Inter system fonts, so the PDF export falls back to Liberation/DejaVu. It is still clean, but doesn't match the editor exactly.
+
+## Stage 8 — Artifact essentials (2026-09-24)
+
+| Command | Result |
+|---|---|
+| Tests-first baseline, `BASE_URL=… pnpm test:e2e --timeout=15000 --grep "@stage(8\|9\|1[0-5]) "` | 21 failed / 0 passed (all new specs, before any feature code) |
+| `pnpm typecheck` / `pnpm test` | pass / 58 passed |
+| `pnpm test:e2e --grep "@stage8 "` | 1st run 2/4 (E2E-29, E2E-31); after fixes 4/4 |
+| `pnpm test:e2e --grep "@stage[0-8] "` | 32 passed / 0 failed (again after Prettier formatting) |
+
+MCP walkthrough (real clicks; screenshots `screenshots/v11-01…06`):
+- E2E-28: pass. New → Document opened "Untitled document". Typing gave v2 "Hello world" by user; the chat got a URL and a sidebar item.
+- E2E-29: pass. Renamed via the pencil to "Brew Notes" (title, tab and API all updated). Delete → confirm returned 404, and the chat card now reads "Document · deleted" and is disabled.
+- E2E-30: pass. Used ‹ to reach v1, then Branch: "Coffee Guide (v1 copy)" opened and is editable; its v1 equals the original v1; the original stays at v2.
+- E2E-31: pass. Copy matched the saved Markdown; the Markdown view showed the source; appending "Extra line." and toggling back gave v2 by user; the word count updated to 13.
+
+Surprises and fixes:
+- Deleting the only artifact closed the panel, so E2E-29 couldn't find the switcher. The panel now stays open with an empty state, which the spec expects.
+- **Spec adjustment, flagged for review:** the Windows clipboard turns `\n` into `\r\n`, so E2E-31 now compares the clipboard with line endings normalised. The scenario text is unchanged, and it would pass as written on Linux/CI.
+- The outline rail was hidden at the default canvas width (the spec passed because it checks text, not visibility). The word count moved into the always-visible status line, and an Outline toggle opens the rail at any width.
+- Added `.gitattributes`/`.editorconfig` (LF) and Prettier (`pnpm format`) after more CRLF and escaping problems in scripted edits. The codebase is now formatted in one style.

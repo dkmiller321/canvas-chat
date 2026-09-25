@@ -11,7 +11,11 @@ const diagramCtx: ArtifactContext = {
   artifacts: [{ id: "dia-1", kind: "diagram", title: "Login Flow", version: 1 }],
   open: { id: "dia-1", kind: "diagram", title: "Login Flow", version: 1, elements: [] },
 };
-const req = (lastUser: string, context: ArtifactContext = { artifacts: [], open: null }, mode: MockRequest["mode"] = "chat"): MockRequest => ({
+const req = (
+  lastUser: string,
+  context: ArtifactContext = { artifacts: [], open: null },
+  mode: MockRequest["mode"] = "chat",
+): MockRequest => ({
   mode,
   lastUser,
   modelId: "mock/alpha",
@@ -26,18 +30,28 @@ describe("v1.1 mock scripts", () => {
       toolName: "create_code",
       input: { title: "Fibonacci", language: "python", code: FIB_CODE },
     });
-    expect(planResponse({ ...req("Write a python script"), afterTool: true })).toMatchObject({ text: "Here is the script." });
+    expect(planResponse({ ...req("Write a python script"), afterTool: true })).toMatchObject({
+      text: "Here is the script.",
+    });
   });
 
   it("S15 edits the open code artifact", () => {
     expect(planResponse(req("Rename the function", codeCtx))).toMatchObject({
       toolName: "edit_document",
-      input: { artifact_id: "code-1", edits: [{ find: "def fib(n):", replace: "def fibonacci(n):" }, { find: "print(fib(10))" }] },
+      input: {
+        artifact_id: "code-1",
+        edits: [{ find: "def fib(n):", replace: "def fibonacci(n):" }, { find: "print(fib(10))" }],
+      },
     });
   });
 
   it("S16 prepends a comment to the whole code", () => {
-    const msg = buildRewriteMessage({ artifactId: "code-1", instruction: quickActionInstruction("comments"), selectedText: FIB_CODE, document: FIB_CODE });
+    const msg = buildRewriteMessage({
+      artifactId: "code-1",
+      instruction: quickActionInstruction("comments"),
+      selectedText: FIB_CODE,
+      document: FIB_CODE,
+    });
     expect(planResponse(req(msg, codeCtx, "rewrite"))).toMatchObject({
       input: { replacement: `# Compute Fibonacci numbers.\n${FIB_CODE}` },
     });
@@ -49,7 +63,10 @@ describe("v1.1 mock scripts", () => {
     expect(planResponse(req(red, diagramCtx, "diagram-rewrite"))).toEqual({
       type: "tool",
       toolName: "update_diagram",
-      input: { artifact_id: "dia-1", operations: [{ op: "restyle", id: "login", strokeColor: "#e03131", backgroundColor: "#ffc9c9" }] },
+      input: {
+        artifact_id: "dia-1",
+        operations: [{ op: "restyle", id: "login", strokeColor: "#e03131", backgroundColor: "#ffc9c9" }],
+      },
     });
     const rename = buildDiagramRewriteMessage({ ...base, instruction: "rename to auth" });
     expect(planResponse(req(rename, diagramCtx, "diagram-rewrite"))).toMatchObject({

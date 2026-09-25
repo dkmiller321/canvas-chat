@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
-import { createDiagram, getArtifact, resetDb, sceneElements, sceneLabels, sendAndWait, waitForVersion } from "./helpers";
+import {
+  createDiagram,
+  getArtifact,
+  resetDb,
+  sceneElements,
+  sceneLabels,
+  sendAndWait,
+  waitForVersion,
+} from "./helpers";
 
 test.beforeEach(resetDb);
 
@@ -22,7 +30,10 @@ test("E2E-44 @stage14 editable diagram types", async ({ page, request }) => {
     const id = await card.getAttribute("data-artifact-id");
     if (!id) throw new Error(`no artifact for ${t.prompt}`);
     const v1 = await waitForVersion(request, id, 1);
-    expect(sceneElements(v1.content).filter((e) => e.type === "image"), `${t.prompt}: image fallback`).toHaveLength(0);
+    expect(
+      sceneElements(v1.content).filter((e) => e.type === "image"),
+      `${t.prompt}: image fallback`,
+    ).toHaveLength(0);
     // Labels may be split across lines or carry decorations (e.g. class members); match by inclusion.
     const text = sceneLabels(v1.content).join("\n");
     for (const label of t.labels) expect(text, `${t.prompt}: ${label}`).toContain(label);

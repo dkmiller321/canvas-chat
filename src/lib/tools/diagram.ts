@@ -97,7 +97,10 @@ function edgePoint(b: Box, toward: { x: number; y: number }) {
 
 function overlaps(a: Box, b: Box, margin = 20) {
   return (
-    a.x < b.x + b.width + margin && b.x < a.x + a.width + margin && a.y < b.y + b.height + margin && b.y < a.y + a.height + margin
+    a.x < b.x + b.width + margin &&
+    b.x < a.x + a.width + margin &&
+    a.y < b.y + b.height + margin &&
+    b.y < a.y + a.height + margin
   );
 }
 
@@ -111,7 +114,8 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
     if (!el) throw new ToolError(`Operation ${opIndex + 1} failed: no element with id "${ref}".`);
     return el;
   };
-  const shapes = () => elements.filter((e) => !e.isDeleted && e.type !== "arrow" && !(e.type === "text" && e.containerId));
+  const shapes = () =>
+    elements.filter((e) => !e.isDeleted && e.type !== "arrow" && !(e.type === "text" && e.containerId));
   const add = (el: SceneElement) => {
     elements.push(el);
     byId.set(el.id, el);
@@ -199,13 +203,17 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
           if (!op.from || !op.to) throw new ToolError(`Operation ${i + 1} failed: an arrow needs from and to.`);
           const from = resolve(op.from, i);
           const to = resolve(op.to, i);
-          const arrow = base("arrow", { x: 0, y: 0, width: 0, height: 0 }, {
-            ...arrowStyle,
-            startArrowhead: null,
-            endArrowhead: "arrow",
-            elbowed: false,
-            lastCommittedPoint: null,
-          });
+          const arrow = base(
+            "arrow",
+            { x: 0, y: 0, width: 0, height: 0 },
+            {
+              ...arrowStyle,
+              startArrowhead: null,
+              endArrowhead: "arrow",
+              elbowed: false,
+              lastCommittedPoint: null,
+            },
+          );
           if (op.strokeColor) arrow.strokeColor = op.strokeColor;
           connect(arrow, from, to);
           add(arrow);

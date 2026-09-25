@@ -7,7 +7,9 @@ describe("applyEdits", () => {
     const out = applyEdits(COFFEE_MARKDOWN, [
       { find: "Coffee is a brewed drink.", replace: "Coffee is a beverage prepared from roasted beans." },
     ]);
-    expect(out).toBe(COFFEE_MARKDOWN.replace("Coffee is a brewed drink.", "Coffee is a beverage prepared from roasted beans."));
+    expect(out).toBe(
+      COFFEE_MARKDOWN.replace("Coffee is a brewed drink.", "Coffee is a beverage prepared from roasted beans."),
+    );
   });
 
   it("builds on a manual edit (S7 after E2E-09)", () => {
@@ -20,7 +22,12 @@ describe("applyEdits", () => {
   });
 
   it("applies several edits in order", () => {
-    expect(applyEdits("a b c", [{ find: "a", replace: "x" }, { find: "x b", replace: "y" }])).toBe("y c");
+    expect(
+      applyEdits("a b c", [
+        { find: "a", replace: "x" },
+        { find: "x b", replace: "y" },
+      ]),
+    ).toBe("y c");
   });
 
   it("fails the whole call when any find is missing (S8)", () => {

@@ -69,7 +69,20 @@ describe("exports", () => {
 
   it("renders every block type and drops unsafe links", () => {
     const html = markdownToHtml(`${SAMPLE}\n\n[x](javascript:alert(1)) <script>`, "Plan");
-    for (const tag of ["<h1>", "<strong>", "<em>", "<code>", '<a href="https://example.com">', "<ol>", "<ul>", "<blockquote>", "<pre><code>", "<table>", "<th>", "<hr>"]) {
+    for (const tag of [
+      "<h1>",
+      "<strong>",
+      "<em>",
+      "<code>",
+      '<a href="https://example.com">',
+      "<ol>",
+      "<ul>",
+      "<blockquote>",
+      "<pre><code>",
+      "<table>",
+      "<th>",
+      "<hr>",
+    ]) {
       expect(html).toContain(tag);
     }
     expect(html).not.toContain("javascript:");

@@ -5,17 +5,23 @@ import {
   ChevronLeft,
   ChevronRight,
   CircleAlert,
+  Copy,
   Download,
+  FileCode,
   FileDiff,
+  GitBranch,
+  ListTree,
   Loader2,
+  Pencil,
   PenLine,
   RotateCcw,
   Shapes,
+  Trash2,
   WandSparkles,
   X,
 } from "lucide-react";
 import dynamic from "next/dynamic";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -74,6 +80,30 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
   const docEditor = useRef<DocumentEditorHandle>(null);
   const diagramEditor = useRef<DiagramEditorHandle>(null);
   const [showDiff, setShowDiff] = useState(false);
+  const [renaming, setRenaming] = useState(false);
+  const [titleDraft, setTitleDraft] = useState("");
+  const [copied, setCopied] = useState(false);
+  /** Raw-Markdown view (D12): the text being edited, or null when the rich editor is shown. */
+  const [sourceText, setSourceText] = useState<string | null>(null);
+  const [outline, setOutline] = useState<"auto" | "show" | "hide">("auto");
+  const [words, setWords] = useState(0);
+
+  // Leaving an artifact leaves its source view and any open rename.
+  const artifactId = doc?.artifact.id;
+  useEffect(() => {
+    setSourceText(null);
+    setRenaming(false);
+  }, [artifactId]);
+
+  async function toggleSource() {
+    if (sourceText === null) {
+      setShowDiff(false);
+      setSourceText(await canvas.currentText());
+      return;
+    }
+    await canvas.reloadOpen();
+    setSourceText(null);
+  }
 
   const artifact = doc?.artifact;
   const current = artifact?.currentVersion;
@@ -133,16 +163,26 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
                 };
 
   return (
-    <section data-testid="canvas-panel" aria-label="Canvas" className="relative flex h-full min-w-0 flex-1 flex-col bg-background">
+    <section
+      data-testid="canvas-panel"
+      aria-label="Canvas"
+      className="relative flex h-full min-w-0 flex-1 flex-col bg-background"
+    >
       {/* Tabs for every artifact in the conversation, plus close. */}
       <div className="flex h-11 shrink-0 items-center gap-1 border-b bg-muted/30 px-2">
-        <div data-testid="artifact-switcher" role="tablist" aria-label="Artifacts" className="flex min-w-0 flex-1 gap-1 overflow-x-auto">
+        <div
+          data-testid="artifact-switcher"
+          role="tablist"
+          aria-label="Artifacts"
+          className="flex min-w-0 flex-1 gap-1 overflow-x-auto"
+        >
           {artifacts.map((a) => (
             <button
               key={a.id}
               role="tab"
               type="button"
               aria-selected={a.id === openId}
+              data-artifact-id={a.id}
               onClick={() => canvas.openArtifact(a.id)}
               className={cn(
                 "flex shrink-0 items-center gap-1.5 rounded-md px-2.5 py-1 text-[13px] transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none",
@@ -156,7 +196,13 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
             </button>
           ))}
         </div>
-        <Button data-testid="canvas-close" variant="ghost" size="icon-sm" aria-label="Close canvas" onClick={canvas.closePanel}>
+        <Button
+          data-testid="canvas-close"
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Close canvas"
+          onClick={canvas.closePanel}
+        >
           <X />
         </Button>
       </div>
@@ -164,13 +210,62 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
       {/* Title, save status, version navigation (Open Canvas layout). */}
       <header className="flex shrink-0 items-start gap-4 px-6 pt-4 pb-3">
         <div className="min-w-0 flex-1">
-          <h2 data-testid="doc-title" className="truncate text-xl font-semibold tracking-tight">
-            {title}
-          </h2>
+          {renaming ? (
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                setRenaming(false);
+                void canvas.renameOpen(titleDraft);
+              }}
+            >
+              <input
+                data-testid="artifact-title-input"
+                aria-label="Title"
+                autoFocus
+                value={titleDraft}
+                onChange={(e) => setTitleDraft(e.target.value)}
+                onBlur={() => {
+                  setRenaming(false);
+                  if (titleDraft.trim() && titleDraft.trim() !== title) void canvas.renameOpen(titleDraft);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") setRenaming(false);
+                }}
+                className="w-full rounded-md border bg-background px-2 py-0.5 text-xl font-semibold tracking-tight outline-none focus-visible:ring-2 focus-visible:ring-ring"
+              />
+            </form>
+          ) : (
+            <div className="group/title flex min-w-0 items-center gap-1">
+              <h2 data-testid="doc-title" className="truncate text-xl font-semibold tracking-tight">
+                {title}
+              </h2>
+              {doc && (
+                <Button
+                  data-testid="artifact-rename"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label="Rename"
+                  title="Rename"
+                  className="opacity-40 group-hover/title:opacity-100 focus-visible:opacity-100"
+                  onClick={() => {
+                    setTitleDraft(title);
+                    setRenaming(true);
+                  }}
+                >
+                  <Pencil />
+                </Button>
+              )}
+            </div>
+          )}
           {status && (
             <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
               {status.icon}
               {status.text}
+              {isDocument && doc && (
+                <span data-testid="doc-stats">
+                  · {words} {words === 1 ? "word" : "words"} · {Math.max(1, Math.round(words / 220))} min read
+                </span>
+              )}
             </p>
           )}
         </div>
@@ -227,6 +322,75 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
                 <FileDiff />
               </Button>
             )}
+            {isDocument && (
+              <Button
+                size="icon-sm"
+                variant={outline === "show" ? "secondary" : "ghost"}
+                aria-pressed={outline === "show"}
+                aria-label="Outline"
+                title="Outline"
+                onClick={() => setOutline((o) => (o === "show" ? "hide" : "show"))}
+              >
+                <ListTree />
+              </Button>
+            )}
+            {isDocument && (
+              <Button
+                data-testid="view-markdown"
+                size="icon-sm"
+                variant={sourceText !== null ? "secondary" : "ghost"}
+                aria-pressed={sourceText !== null}
+                aria-label="Edit as Markdown"
+                title="Markdown source"
+                disabled={!editable && sourceText === null}
+                onClick={toggleSource}
+              >
+                <FileCode />
+              </Button>
+            )}
+            {artifact?.kind !== "diagram" && (
+              <Button
+                data-testid="copy-markdown"
+                size="icon-sm"
+                variant="ghost"
+                aria-label={copied ? "Copied" : "Copy to clipboard"}
+                title="Copy"
+                onClick={async () => {
+                  await navigator.clipboard.writeText(await canvas.currentText());
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+              >
+                {copied ? <Check /> : <Copy />}
+              </Button>
+            )}
+            <Button
+              data-testid="version-branch"
+              size="icon-sm"
+              variant="ghost"
+              aria-label={`Branch a copy from version ${shownNo}`}
+              title={`Branch a copy from version ${shownNo}`}
+              onClick={() => canvas.branchShown()}
+            >
+              <GitBranch />
+            </Button>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button data-testid="artifact-delete" size="icon-sm" variant="ghost" aria-label="Delete" title="Delete">
+                  <Trash2 />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-64">
+                <DropdownMenuLabel>Delete “{title}” and all its versions?</DropdownMenuLabel>
+                <DropdownMenuItem
+                  data-testid="artifact-delete-confirm"
+                  className="text-destructive data-[highlighted]:text-destructive"
+                  onSelect={() => void canvas.deleteOpen()}
+                >
+                  <Trash2 /> Delete permanently
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button data-testid="export-menu" size="icon-sm" variant="ghost" aria-label="Export" title="Export">
@@ -290,15 +454,33 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
         </div>
       )}
 
-      <div className="relative min-h-0 flex-1 border-t">
+      <div className="@container relative min-h-0 flex-1 border-t">
         {preview && !doc ? (
           <div className="h-full overflow-y-auto" aria-busy="true">
             <div className="doc-prose px-10 pt-10 pb-32">
               <Markdown text={preview.markdown} className="" />
             </div>
           </div>
+        ) : !doc && !openId ? (
+          <div className="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
+            <p>No artifact is open.</p>
+            <p>Ask for a document or diagram, or use New in the chat header.</p>
+          </div>
         ) : !doc ? (
           <CenteredSpinner label="Loading" />
+        ) : artifact?.kind === "document" && sourceText !== null ? (
+          <textarea
+            data-testid="markdown-source"
+            aria-label="Markdown source"
+            value={sourceText}
+            spellCheck={false}
+            onChange={(e) => {
+              const value = e.target.value;
+              setSourceText(value);
+              canvas.onUserChange(() => value);
+            }}
+            className="h-full w-full resize-none bg-muted/30 px-10 pt-8 pb-32 font-mono text-sm leading-relaxed outline-none"
+          />
         ) : artifact?.kind === "document" ? (
           showDiff && previous ? (
             <DiffView before={previous.content} after={doc.content} />
@@ -311,6 +493,8 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
               editable={editable}
               onUserChange={canvas.onUserChange}
               onAskAi={(selectedText, instruction) => canvas.rewrite({ instruction, selectedText, mode: "ask", model })}
+              outline={outline}
+              onWordCount={setWords}
             />
           )
         ) : (
@@ -325,7 +509,7 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
         )}
 
         {/* Floating quick actions, bottom-right like Open Canvas. */}
-        {doc && artifact?.kind === "document" && !showDiff && (
+        {doc && artifact?.kind === "document" && !showDiff && sourceText === null && (
           <div className="absolute right-5 bottom-5 z-10">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>

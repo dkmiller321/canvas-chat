@@ -57,8 +57,9 @@ function contains(outer: El, inner: El): boolean {
 
 /** Number of shapes that already carry a palette fill: the next shape takes the next colour. */
 export function paletteIndex(elements: El[]): number {
-  return elements.filter((e) => !e.isDeleted && SHAPES.has(e.type) && e.backgroundColor && e.backgroundColor !== "transparent")
-    .length;
+  return elements.filter(
+    (e) => !e.isDeleted && SHAPES.has(e.type) && e.backgroundColor && e.backgroundColor !== "transparent",
+  ).length;
 }
 
 /**
@@ -75,12 +76,21 @@ export function styleElements<T extends El>(elements: T[]): T[] {
     if (e.type === "text") return { ...e, strokeColor: TEXT_COLOR };
     if (!SHAPES.has(e.type)) return e;
     if (frames.has(e.id)) {
-      return { ...e, backgroundColor: "transparent", strokeColor: "#868e96", strokeStyle: "dashed", strokeWidth: 1, roughness: 0 };
+      return {
+        ...e,
+        backgroundColor: "transparent",
+        strokeColor: "#868e96",
+        strokeStyle: "dashed",
+        strokeWidth: 1,
+        roughness: 0,
+      };
     }
     const custom = e.backgroundColor && e.backgroundColor !== "transparent";
     // Rounded corners, matching shapes the AI adds later.
     const round = e.type === "ellipse" ? {} : { roundness: { type: 3 } };
-    const styled = custom ? { ...e, ...round, fillStyle: "hachure", strokeWidth: 2 } : { ...e, ...round, ...shapeStyle(n) };
+    const styled = custom
+      ? { ...e, ...round, fillStyle: "hachure", strokeWidth: 2 }
+      : { ...e, ...round, ...shapeStyle(n) };
     n++;
     return styled;
   });

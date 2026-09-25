@@ -1,7 +1,7 @@
 "use client";
 
 import { getToolName, type UIMessage } from "ai";
-import { AlertCircle, Check, Loader2, PenLine, Shapes } from "lucide-react";
+import { AlertCircle, Check, Code2, Loader2, PenLine, Shapes } from "lucide-react";
 import type { CreateDiagramOutput, CreateDocumentOutput } from "@/lib/tools";
 import { useCanvasActions } from "./canvas-actions";
 
@@ -27,7 +27,11 @@ export function ToolPartView({ part }: { part: ToolPart }) {
       <div
         data-testid="tool-status"
         role="status"
-        className={failed ? "flex items-start gap-2 text-sm text-destructive" : "flex items-center gap-2 text-sm text-muted-foreground"}
+        className={
+          failed
+            ? "flex items-start gap-2 text-sm text-destructive"
+            : "flex items-center gap-2 text-sm text-muted-foreground"
+        }
       >
         {failed ? (
           <AlertCircle className="mt-0.5 size-4 shrink-0" />
@@ -53,23 +57,34 @@ export function ToolPartView({ part }: { part: ToolPart }) {
   );
 }
 
-function ArtifactCard({ output, kind }: { output: { artifactId: string; title: string }; kind: "document" | "diagram" }) {
-  const { openArtifact } = useCanvasActions();
-  const Icon = kind === "document" ? PenLine : Shapes;
+function ArtifactCard({
+  output,
+  kind,
+}: {
+  output: { artifactId: string; title: string };
+  kind: "document" | "diagram" | "code";
+}) {
+  const { openArtifact, liveIds } = useCanvasActions();
+  const Icon = kind === "document" ? PenLine : kind === "code" ? Code2 : Shapes;
+  const deleted = !liveIds.has(output.artifactId);
+  const label = kind === "document" ? "Document" : kind === "code" ? "Code" : "Diagram";
   return (
     <button
       type="button"
       data-testid="artifact-card"
       data-artifact-id={output.artifactId}
+      disabled={deleted}
       onClick={() => openArtifact(output.artifactId)}
-      className="flex w-full max-w-sm items-center gap-3 rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none"
+      className="flex w-full max-w-sm items-center gap-3 rounded-lg border bg-card px-3 py-2 text-left transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-ring focus-visible:outline-none disabled:cursor-default disabled:opacity-60 disabled:hover:bg-card"
     >
       <span className="flex size-9 items-center justify-center rounded-md bg-secondary">
         <Icon className="size-4" />
       </span>
       <span className="min-w-0">
         <span className="block truncate text-sm font-medium">{output.title}</span>
-        <span className="block text-xs text-muted-foreground">{kind === "document" ? "Document" : "Diagram"} · click to open</span>
+        <span className="block text-xs text-muted-foreground">
+          {label} · {deleted ? "deleted" : "click to open"}
+        </span>
       </span>
     </button>
   );

@@ -33,12 +33,16 @@ export const messages = pgTable(
 export const artifacts = pgTable(
   "artifacts",
   {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     conversationId: uuid("conversation_id")
       .notNull()
       .references(() => conversations.id, { onDelete: "cascade" }),
-    kind: text("kind", { enum: ["document", "diagram"] }).notNull(),
+    kind: text("kind", { enum: ["document", "diagram", "code"] }).notNull(),
     title: text("title").notNull(),
+    /** Code artifacts only: the language id (e.g. "python"). */
+    language: text("language"),
     // Null only for a diagram whose Mermaid source has not been converted yet.
     currentVersionId: uuid("current_version_id"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
@@ -49,7 +53,9 @@ export const artifacts = pgTable(
 export const artifactVersions = pgTable(
   "artifact_versions",
   {
-    id: uuid("id").primaryKey().default(sql`gen_random_uuid()`),
+    id: uuid("id")
+      .primaryKey()
+      .default(sql`gen_random_uuid()`),
     artifactId: uuid("artifact_id")
       .notNull()
       .references(() => artifacts.id, { onDelete: "cascade" }),

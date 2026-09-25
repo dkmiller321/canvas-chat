@@ -29,7 +29,8 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
 
 function toolCallIds(messages: UIMessage[]): Set<string> {
   const ids = new Set<string>();
-  for (const m of messages) for (const p of m.parts) if (isToolUIPart(p) && p.state === "output-available") ids.add(p.toolCallId);
+  for (const m of messages)
+    for (const p of m.parts) if (isToolUIPart(p) && p.state === "output-available") ids.add(p.toolCallId);
   return ids;
 }
 
@@ -116,7 +117,9 @@ export function useCanvas({
         contentKey: `${id}:${shown.versionNo}:${isOld ? "view" : "edit"}`,
         viewing: isOld ? shown.versionNo : null,
       });
-      setArtifacts((list) => list.map((a) => (a.id === id ? { ...a, version: current.versionNo, title: artifact.title } : a)));
+      setArtifacts((list) =>
+        list.map((a) => (a.id === id ? { ...a, version: current.versionNo, title: artifact.title } : a)),
+      );
     },
     [convertDiagram],
   );
@@ -250,6 +253,90 @@ export function useCanvas({
     }
   }, [load]);
 
+  // ---- artifact management (D12, A3) ----------------------------------------
+
+  /** Show an artifact that was just created outside the chat stream (blank, branch). */
+  const addArtifact = useCallback(
+    (a: ArtifactDto) => {
+      setArtifacts((list) => [
+        ...list.filter((x) => x.id !== a.id),
+        { id: a.id, kind: a.kind, title: a.title, version: a.currentVersion?.versionNo ?? 0 },
+      ]);
+      openArtifact(a.id);
+    },
+    [openArtifact],
+  );
+
+  const renameOpen = useCallback(async (title: string) => {
+    const id = openIdRef.current;
+    if (!id || !title.trim()) return;
+    try {
+      const updated = await fetchJson<ArtifactDto>(`/api/artifacts/${id}`, {
+        method: "PATCH",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ title: title.trim() }),
+      });
+      setArtifacts((list) => list.map((a) => (a.id === id ? { ...a, title: updated.title } : a)));
+      setDoc((d) => (d && d.artifact.id === id ? { ...d, artifact: { ...d.artifact, title: updated.title } } : d));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, []);
+
+  const deleteOpen = useCallback(async () => {
+    const id = openIdRef.current;
+    if (!id) return;
+    // Drop any pending autosave for the artifact being deleted.
+    if (pending.current?.id === id) {
+      clearTimeout(pending.current.timer);
+      pending.current = null;
+    }
+    const res = await fetch(`/api/artifacts/${id}`, { method: "DELETE" });
+    if (!res.ok && res.status !== 404) {
+      setError(await res.text());
+      return;
+    }
+    const rest = artifacts.filter((a) => a.id !== id);
+    setArtifacts(rest);
+    openIdRef.current = null;
+    setOpenId(null);
+    setDoc(null);
+    // Stay open: the switcher and an empty state show what is left.
+    const next = rest.at(-1);
+    if (next) openArtifact(next.id);
+  }, [artifacts, openArtifact]);
+
+  /** Branch a copy from the version on screen (or the current one). */
+  const branchShown = useCallback(async () => {
+    const current = docRef.current;
+    if (!current?.artifact.currentVersion) return;
+    await flush();
+    const versionNo = current.viewing ?? current.artifact.currentVersion.versionNo;
+    try {
+      const copy = await fetchJson<ArtifactDto>(`/api/artifacts/${current.artifact.id}/branch`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ versionNo }),
+      });
+      addArtifact(copy);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    }
+  }, [flush, addArtifact]);
+
+  /** The open artifact's saved text, after flushing pending edits. */
+  const currentText = useCallback(async () => {
+    await flush();
+    return docRef.current?.content ?? "";
+  }, [flush]);
+
+  /** Reload the open artifact from the server, e.g. after editing its raw Markdown. */
+  const reloadOpen = useCallback(async () => {
+    await flush();
+    const id = openIdRef.current;
+    if (id) await load(id);
+  }, [flush, load]);
+
   // ---- highlight-to-edit and quick actions -----------------------------------
 
   const rewrite = useCallback(
@@ -312,7 +399,10 @@ export function useCanvas({
 
         if (name === "create_document") {
           const out = part.output as CreateDocumentOutput;
-          setArtifacts((list) => [...list, { id: out.artifactId, kind: "document", title: out.title, version: out.versionNo }]);
+          setArtifacts((list) => [
+            ...list,
+            { id: out.artifactId, kind: "document", title: out.title, version: out.versionNo },
+          ]);
           openArtifact(out.artifactId);
         } else if (name === "create_diagram") {
           const out = part.output as CreateDiagramOutput;
@@ -324,7 +414,9 @@ export function useCanvas({
           setPreview(null);
           convertDiagram(out)
             .then(() => reload(out.artifactId))
-            .catch((e: unknown) => setError(`Could not draw the diagram: ${e instanceof Error ? e.message : String(e)}`));
+            .catch((e: unknown) =>
+              setError(`Could not draw the diagram: ${e instanceof Error ? e.message : String(e)}`),
+            );
         } else if (name === "edit_document" || name === "update_diagram" || name === "rewrite_selection") {
           const out = part.output as EditOutput;
           setArtifacts((list) => list.map((a) => (a.id === out.artifactId ? { ...a, version: out.versionNo } : a)));
@@ -353,6 +445,12 @@ export function useCanvas({
     viewVersion,
     restoreViewed,
     rewrite,
+    addArtifact,
+    renameOpen,
+    deleteOpen,
+    branchShown,
+    currentText,
+    reloadOpen,
   };
 }
 

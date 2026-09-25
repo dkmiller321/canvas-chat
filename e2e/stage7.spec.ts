@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { HELLO, createDiagram, createDocument, downloadBytes, resetDb, send, sendAndWait, waitForReply } from "./helpers";
+import {
+  HELLO,
+  createDiagram,
+  createDocument,
+  downloadBytes,
+  resetDb,
+  send,
+  sendAndWait,
+  waitForReply,
+} from "./helpers";
 
 test.beforeEach(resetDb);
 

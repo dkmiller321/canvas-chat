@@ -117,3 +117,17 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 29. **[process] The mock only produces trivial content** (a two-heading coffee guide, a three-box flowchart), so the UI was never exercised with realistic documents: tables, long lists, code, subgraphs.
     - *Kit change:* add a mock script with a rich document (tables, nested lists, quote, code) and a larger diagram (subgraph, decision diamond, data store), so both specs and screenshots cover real layouts.
+
+### 2026-09-24 · v1.1 stages (8+)
+
+30. **[contract] Stage tags don't grep cleanly past 9.** `--grep @stage1` also matches `@stage10`–`@stage15`, and `@stage[0-7]` matches `@stage1x`. Found while adding stages 8–15.
+    - *Kit change:* use zero-padded or delimited tags (`@stage01`, or `@stage:1`), or tell the builder to grep with a trailing space (`"@stage1 "`).
+
+31. **[contract] "Text present" assertions pass for invisible UI.** E2E-31's outline passed while the outline rail was hidden at the default canvas width. Only the MCP screenshot revealed it.
+    - *Kit change:* use `toBeVisible()` for things a user must see, and state the viewport/canvas split in E2E_TESTS.md.
+
+32. **[env] OS clipboard line endings differ** (Windows `\r\n`). Any clipboard assertion should normalise line endings.
+    - *Kit change:* mention it in the harness section, next to the clipboard permission note.
+
+33. **[process] Scope grew after delivery** ("parity with Open Canvas and leading editors"). The PRD's parity table was functional and incomplete (no toolbar, slash menu, branch, code canvas, diagram presets…).
+    - *Kit change:* the PRD template should include a competitor feature matrix (rows = features, columns = reference products, plus an in/out-of-scope column), filled in during the brainstorm phase.

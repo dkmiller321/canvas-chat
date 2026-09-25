@@ -44,7 +44,10 @@ export async function POST(req: Request) {
 
   // Title a new conversation from its first message, alongside the reply (C5).
   const firstUser = messages.find((m) => m.role === "user");
-  const firstText = firstUser?.parts.map((p) => (p.type === "text" ? p.text : "")).join(" ").trim();
+  const firstText = firstUser?.parts
+    .map((p) => (p.type === "text" ? p.text : ""))
+    .join(" ")
+    .trim();
   const title =
     conversation.title === DEFAULT_TITLE && firstText
       ? getSettings()

@@ -42,7 +42,11 @@ export const QUICK_ACTIONS = [
 
 /** Code quick actions (Open Canvas parity, D8). */
 export const CODE_QUICK_ACTIONS = [
-  { id: "comments", label: "Add comments", instruction: "Add concise comments explaining the code. Change nothing else." },
+  {
+    id: "comments",
+    label: "Add comments",
+    instruction: "Add concise comments explaining the code. Change nothing else.",
+  },
   { id: "logs", label: "Add logging", instruction: "Add useful logging statements. Change nothing else." },
   { id: "fix-bugs", label: "Fix bugs", instruction: "Find and fix bugs. Keep the behaviour otherwise the same." },
   { id: "optimize", label: "Optimise", instruction: "Improve performance and readability without changing behaviour." },
@@ -89,7 +93,10 @@ export function parseDiagramRewriteMessage(text: string): DiagramRewriteRequest 
   return {
     artifactId,
     instruction,
-    selectedIds: selected.split(",").map((s) => s.trim()).filter(Boolean),
+    selectedIds: selected
+      .split(",")
+      .map((s) => s.trim())
+      .filter(Boolean),
     elements: JSON.parse(elements) as ElementSummary[],
   };
 }

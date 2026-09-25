@@ -20,7 +20,10 @@ function ChangedBlock({ before, after }: { before: string; after: string }) {
   const level = after.match(HEADING)?.[1]?.length ?? before.match(HEADING)?.[1]?.length;
   const parts = diffWords(before.replace(HEADING, ""), after.replace(HEADING, ""));
   const body = parts.map((p, i) => (
-    <span key={i} className={cn(p.added && "rounded-sm bg-added", p.removed && "rounded-sm bg-removed line-through decoration-1")}>
+    <span
+      key={i}
+      className={cn(p.added && "rounded-sm bg-added", p.removed && "rounded-sm bg-removed line-through decoration-1")}
+    >
       {p.added && <span className="sr-only">[added] </span>}
       {p.removed && <span className="sr-only">[removed] </span>}
       {p.value}

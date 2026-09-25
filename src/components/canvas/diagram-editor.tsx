@@ -32,7 +32,11 @@ type Props = {
   onUserChange: (getContent: () => string) => void;
 };
 
-type StoredScene = { elements?: unknown[]; appState?: { viewBackgroundColor?: string }; files?: Record<string, unknown> };
+type StoredScene = {
+  elements?: unknown[];
+  appState?: { viewBackgroundColor?: string };
+  files?: Record<string, unknown>;
+};
 
 function parse(content: string) {
   const scene = JSON.parse(content) as StoredScene;

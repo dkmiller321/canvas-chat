@@ -7,7 +7,10 @@ import { env } from "@/lib/env";
 export const dynamic = "force-dynamic";
 
 export default async function ConversationPage({ params }: { params: Promise<{ id: string }> }) {
-  const id = z.string().uuid().safeParse((await params).id);
+  const id = z
+    .string()
+    .uuid()
+    .safeParse((await params).id);
   const conversation = id.success ? await getConversation(id.data) : null;
   if (!conversation) notFound();
   const allowed = env().allowedModels;

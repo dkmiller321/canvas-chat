@@ -13,7 +13,10 @@ const body = z.object({
 });
 
 async function load(params: Ctx["params"]) {
-  const id = z.string().uuid().safeParse((await params).id);
+  const id = z
+    .string()
+    .uuid()
+    .safeParse((await params).id);
   return id.success ? getArtifact(id.data) : null;
 }
 

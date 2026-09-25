@@ -22,7 +22,9 @@ export const KeepSelection = Extension.create({
             const range = tr.getMeta(key) as Range | null | undefined;
             if (range === null) return DecorationSet.empty;
             if (range) {
-              return DecorationSet.create(tr.doc, [Decoration.inline(range.from, range.to, { class: "ask-ai-selection" })]);
+              return DecorationSet.create(tr.doc, [
+                Decoration.inline(range.from, range.to, { class: "ask-ai-selection" }),
+              ]);
             }
             return set.map(tr.mapping, tr.doc);
           },

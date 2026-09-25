@@ -79,7 +79,9 @@ describe("planResponse", () => {
 
   it("S7 and S8 edit the open document", () => {
     expect(planResponse(chat("Add a conclusion", docCtx))).toMatchObject({
-      input: { edits: [{ find: "Use fresh beans.", replace: "Use fresh beans.\n\n## Conclusion\n\nEnjoy responsibly." }] },
+      input: {
+        edits: [{ find: "Use fresh beans.", replace: "Use fresh beans.\n\n## Conclusion\n\nEnjoy responsibly." }],
+      },
     });
     expect(planResponse(chat("Break the edit", docCtx))).toMatchObject({
       input: { edits: [{ find: "TEXT THAT DOES NOT EXIST", replace: "x" }] },
@@ -119,7 +121,11 @@ describe("planResponse", () => {
       input: { artifact_id: "doc-1", selected_text: "Use fresh beans.", replacement: "Grind beans fresh." },
     });
 
-    const formal = buildRewriteMessage({ ...base, instruction: quickActionInstruction("formal"), selectedText: COFFEE_MARKDOWN });
+    const formal = buildRewriteMessage({
+      ...base,
+      instruction: quickActionInstruction("formal"),
+      selectedText: COFFEE_MARKDOWN,
+    });
     expect(planResponse({ ...chat(formal), mode: "rewrite" })).toMatchObject({
       input: { selected_text: COFFEE_MARKDOWN, replacement: COFFEE_MARKDOWN.replaceAll("Coffee", "COFFEE") },
     });

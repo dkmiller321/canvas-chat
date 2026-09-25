@@ -41,7 +41,14 @@ export function Composer({ busy, onSend, onStop }: Props) {
         className="max-h-60 min-h-10 flex-1 resize-none bg-transparent px-2 py-2 text-sm outline-none field-sizing-content disabled:opacity-60"
       />
       {busy ? (
-        <Button type="button" data-testid="stop-button" size="icon" variant="secondary" onClick={onStop} aria-label="Stop">
+        <Button
+          type="button"
+          data-testid="stop-button"
+          size="icon"
+          variant="secondary"
+          onClick={onStop}
+          aria-label="Stop"
+        >
           <Square className="fill-current" />
         </Button>
       ) : (

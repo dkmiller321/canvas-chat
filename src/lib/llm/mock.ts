@@ -21,7 +21,10 @@ const USAGE: LanguageModelV4Usage = {
   outputTokens: { total: 0, text: 0, reasoning: 0 },
 };
 
-const finish = (unified: LanguageModelV4FinishReason["unified"]): LanguageModelV4FinishReason => ({ unified, raw: unified });
+const finish = (unified: LanguageModelV4FinishReason["unified"]): LanguageModelV4FinishReason => ({
+  unified,
+  raw: unified,
+});
 
 function systemText(prompt: LanguageModelV4Prompt): string {
   return prompt

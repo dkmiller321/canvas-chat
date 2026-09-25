@@ -14,7 +14,9 @@ function textOf(node: ReactNode): string {
 
 const components: Components = {
   pre({ children }) {
-    const code = isValidElement(children) ? (children as ReactElement<{ className?: string; children?: ReactNode }>) : null;
+    const code = isValidElement(children)
+      ? (children as ReactElement<{ className?: string; children?: ReactNode }>)
+      : null;
     const language = code?.props.className?.match(/language-([\w+-]+)/)?.[1] ?? "";
     return <CodeBlock code={textOf(code?.props.children ?? children).replace(/\n$/, "")} language={language} />;
   },
@@ -28,7 +30,13 @@ const components: Components = {
 };
 
 /** `className` defaults to chat typography; pass "" to inherit the surrounding document's. */
-export const Markdown = memo(function Markdown({ text, className = "prose-chat" }: { text: string; className?: string }) {
+export const Markdown = memo(function Markdown({
+  text,
+  className = "prose-chat",
+}: {
+  text: string;
+  className?: string;
+}) {
   return (
     <div className={className}>
       <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>

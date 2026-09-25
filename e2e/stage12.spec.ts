@@ -1,5 +1,14 @@
 import { expect, test } from "@playwright/test";
-import { createDiagram, fullElements, getArtifact, resetDb, sceneLabels, selectShapes, shapeIdsByLabel, waitForVersion } from "./helpers";
+import {
+  createDiagram,
+  fullElements,
+  getArtifact,
+  resetDb,
+  sceneLabels,
+  selectShapes,
+  shapeIdsByLabel,
+  waitForVersion,
+} from "./helpers";
 
 test.beforeEach(resetDb);
 

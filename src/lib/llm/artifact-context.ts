@@ -7,10 +7,15 @@ import type { ArtifactContext, OpenArtifact } from "./context";
  * it includes the user's saved manual edits (PRD A5). The open artifact is the one
  * shown in the canvas, else the most recently created one.
  */
-export async function loadArtifactContext(conversationId: string, openArtifactId: string | null): Promise<ArtifactContext> {
+export async function loadArtifactContext(
+  conversationId: string,
+  openArtifactId: string | null,
+): Promise<ArtifactContext> {
   const artifacts = (await listArtifactSummaries(conversationId)).filter((a) => a.version > 0);
   const openId =
-    (openArtifactId && artifacts.some((a) => a.id === openArtifactId) ? openArtifactId : null) ?? artifacts.at(-1)?.id ?? null;
+    (openArtifactId && artifacts.some((a) => a.id === openArtifactId) ? openArtifactId : null) ??
+    artifacts.at(-1)?.id ??
+    null;
   if (!openId) return { artifacts, open: null };
 
   const artifact = await getArtifact(openId);
@@ -20,6 +25,8 @@ export async function loadArtifactContext(conversationId: string, openArtifactId
   const open: OpenArtifact =
     artifact.kind === "document"
       ? { ...listing, kind: "document", content: version.content }
-      : { ...listing, kind: "diagram", elements: summarizeScene(parseScene(version.content)) };
+      : artifact.kind === "code"
+        ? { ...listing, kind: "code", language: artifact.language ?? "text", content: version.content }
+        : { ...listing, kind: "diagram", elements: summarizeScene(parseScene(version.content)) };
   return { artifacts, open };
 }

@@ -138,7 +138,8 @@ class Converter {
                   const inner = this.blocks(cell.content).filter((b): b is Paragraph => b instanceof Paragraph);
                   return inner.length > 0 ? inner : [new Paragraph("")];
                 })(),
-                shading: cell.type === "tableHeader" ? { type: ShadingType.CLEAR, fill: "E5E7EB", color: "auto" } : undefined,
+                shading:
+                  cell.type === "tableHeader" ? { type: ShadingType.CLEAR, fill: "E5E7EB", color: "auto" } : undefined,
               }),
           ),
         }),

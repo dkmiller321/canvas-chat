@@ -3,7 +3,8 @@ import { createDocument, getArtifact, resetDb } from "./helpers";
 
 test.beforeEach(resetDb);
 
-const content = async (request: APIRequestContext, id: string) => (await getArtifact(request, id)).currentVersion?.content ?? "";
+const content = async (request: APIRequestContext, id: string) =>
+  (await getArtifact(request, id)).currentVersion?.content ?? "";
 
 test("E2E-32 @stage9 formatting toolbar", async ({ page, request }) => {
   const id = await createDocument(page);

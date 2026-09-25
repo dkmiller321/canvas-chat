@@ -58,7 +58,10 @@ test("E2E-30 @stage8 branch from a version", async ({ page, request }) => {
   const tabs = page.getByTestId("artifact-switcher").getByRole("tab");
   await expect(tabs).toHaveCount(2);
   await expect(page.getByTestId("doc-title")).toHaveText("Coffee Guide (v1 copy)");
-  const copyId = await page.getByTestId("artifact-switcher").getByRole("tab", { selected: true }).getAttribute("data-artifact-id");
+  const copyId = await page
+    .getByTestId("artifact-switcher")
+    .getByRole("tab", { selected: true })
+    .getAttribute("data-artifact-id");
   if (!copyId) throw new Error("no selected tab id");
   expect(copyId).not.toBe(id);
 
@@ -74,7 +77,8 @@ test("E2E-31 @stage8 copy, source view, stats and outline", async ({ page, conte
 
   await page.getByTestId("copy-markdown").click();
   const clipboard = await page.evaluate(() => navigator.clipboard.readText());
-  expect(clipboard).toBe((await getArtifact(request, id)).currentVersion?.content);
+  // The Windows clipboard turns \n into \r\n; compare the text, not the platform's line endings.
+  expect(clipboard.replace(/\r\n/g, "\n")).toBe((await getArtifact(request, id)).currentVersion?.content);
 
   await expect(page.getByTestId("doc-stats")).toContainText("11 words");
   const outline = page.getByTestId("doc-outline");
@@ -93,4 +97,3 @@ test("E2E-31 @stage8 copy, source view, stats and outline", async ({ page, conte
   expect(v2.author).toBe("user");
   expect(v2.content).toContain("Extra line.");
 });
-

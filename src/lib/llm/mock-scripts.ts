@@ -67,7 +67,9 @@ const CHAT_SCRIPTS: ChatScript[] = [
   },
   {
     trigger: "add a conclusion",
-    run: editOpenDocument([{ find: "Use fresh beans.", replace: "Use fresh beans.\n\n## Conclusion\n\nEnjoy responsibly." }]),
+    run: editOpenDocument([
+      { find: "Use fresh beans.", replace: "Use fresh beans.\n\n## Conclusion\n\nEnjoy responsibly." },
+    ]),
   },
   { trigger: "break the edit", run: editOpenDocument([{ find: "TEXT THAT DOES NOT EXIST", replace: "x" }]) },
   {
@@ -117,14 +119,23 @@ const CHAT_SCRIPTS: ChatScript[] = [
         : text(NO_SCRIPT);
     },
   },
-  { trigger: "draw a sequence diagram", run: diagram("Greeting", "sequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi") },
-  { trigger: "draw a class diagram", run: diagram("Animals", "classDiagram\n  class Animal\n  class Dog\n  Animal <|-- Dog") },
+  {
+    trigger: "draw a sequence diagram",
+    run: diagram("Greeting", "sequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi"),
+  },
+  {
+    trigger: "draw a class diagram",
+    run: diagram("Animals", "classDiagram\n  class Animal\n  class Dog\n  Animal <|-- Dog"),
+  },
   {
     trigger: "draw a state diagram",
     run: diagram("Runner", "stateDiagram-v2\n  [*] --> Idle\n  Idle --> Running: start\n  Running --> Idle: stop"),
   },
   { trigger: "draw an er diagram", run: diagram("Orders", "erDiagram\n  CUSTOMER ||--o{ ORDER : places") },
-  { trigger: "draw a mind map", run: diagram("Coffee Map", "mindmap\n  root((Coffee))\n    Beans\n    Brewing\n    Serving") },
+  {
+    trigger: "draw a mind map",
+    run: diagram("Coffee Map", "mindmap\n  root((Coffee))\n    Beans\n    Brewing\n    Serving"),
+  },
 ];
 
 function planRewrite(r: MockRequest): MockStep {
@@ -145,7 +156,9 @@ function planDiagramRewrite(r: MockRequest): MockStep {
   const instruction = req.instruction.toLowerCase();
   const update = (operations: unknown[]) => tool(TOOL_NAMES.updateDiagram, { artifact_id: req.artifactId, operations });
   if (instruction.includes("make it red")) {
-    return update(req.selectedIds.map((id) => ({ op: "restyle", id, strokeColor: "#e03131", backgroundColor: "#ffc9c9" })));
+    return update(
+      req.selectedIds.map((id) => ({ op: "restyle", id, strokeColor: "#e03131", backgroundColor: "#ffc9c9" })),
+    );
   }
   if (instruction.includes("rename to auth")) return update([{ op: "relabel", id: req.selectedIds[0], label: "Auth" }]);
   return text(NO_SCRIPT);

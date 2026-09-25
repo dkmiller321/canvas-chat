@@ -85,8 +85,13 @@ describe("applyDiagramOps", () => {
   });
 
   it("restyles an element", () => {
-    const after = applyDiagramOps(loginFlow(), [{ op: "restyle", id: "u", backgroundColor: "#ffc9c9", strokeStyle: "dashed" }]);
-    expect(after.elements.find((e) => e.id === "u")).toMatchObject({ backgroundColor: "#ffc9c9", strokeStyle: "dashed" });
+    const after = applyDiagramOps(loginFlow(), [
+      { op: "restyle", id: "u", backgroundColor: "#ffc9c9", strokeStyle: "dashed" },
+    ]);
+    expect(after.elements.find((e) => e.id === "u")).toMatchObject({
+      backgroundColor: "#ffc9c9",
+      strokeStyle: "dashed",
+    });
   });
 
   it("fails on an unknown id and changes nothing", () => {

@@ -3,7 +3,11 @@ import { getModel } from "./provider";
 import { DEFAULT_TITLE, TITLE_INSTRUCTIONS } from "./title";
 
 /** Short conversation title from the first user message, on the cheaper task model (C5). */
-export async function generateTitle(taskModel: string, firstMessage: string, abortSignal?: AbortSignal): Promise<string> {
+export async function generateTitle(
+  taskModel: string,
+  firstMessage: string,
+  abortSignal?: AbortSignal,
+): Promise<string> {
   const { text } = await generateText({
     model: getModel(taskModel),
     instructions: TITLE_INSTRUCTIONS,

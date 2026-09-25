@@ -15,7 +15,10 @@ const FORMATS = {
 
 /** Document exports (E1, E2). Diagram exports run in the browser with Excalidraw's own exporters (E3). */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const id = z.string().uuid().safeParse((await params).id);
+  const id = z
+    .string()
+    .uuid()
+    .safeParse((await params).id);
   const format = z.enum(["md", "pdf", "docx"]).safeParse(new URL(req.url).searchParams.get("format"));
   const artifact = id.success ? await getArtifact(id.data) : null;
   if (!artifact || artifact.kind !== "document" || !artifact.currentVersion) {

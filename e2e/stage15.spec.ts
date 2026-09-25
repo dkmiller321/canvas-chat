@@ -6,7 +6,9 @@ test.beforeEach(resetDb);
 
 test("E2E-46 @stage15 import .excalidraw", async ({ page, request }) => {
   const id = await createDiagram(page, request);
-  await page.getByTestId("diagram-import").setInputFiles(path.join(import.meta.dirname, "fixtures", "imported.excalidraw"));
+  await page
+    .getByTestId("diagram-import")
+    .setInputFiles(path.join(import.meta.dirname, "fixtures", "imported.excalidraw"));
   const v2 = await waitForVersion(request, id, 2);
   expect(v2.author).toBe("user");
   expect(sceneLabels(v2.content)).toEqual(["Imported"]);
@@ -16,7 +18,8 @@ test("E2E-47 @stage15 library persists", async ({ page, request }) => {
   await createDiagram(page, request);
   await page.waitForFunction(() => "__excalidrawAPI" in window);
   await page.evaluate(async () => {
-    const api = (window as unknown as { __excalidrawAPI: { updateLibrary: (o: unknown) => Promise<unknown> } }).__excalidrawAPI;
+    const api = (window as unknown as { __excalidrawAPI: { updateLibrary: (o: unknown) => Promise<unknown> } })
+      .__excalidrawAPI;
     await api.updateLibrary({
       libraryItems: [
         {
