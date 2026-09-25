@@ -118,7 +118,7 @@ describe("planResponse", () => {
     expect(planResponse({ ...chat(shorten), mode: "rewrite" })).toEqual({
       type: "tool",
       toolName: "rewrite_selection",
-      input: { artifact_id: "doc-1", selected_text: "Use fresh beans.", replacement: "Grind beans fresh." },
+      input: { replacement: "Grind beans fresh." },
     });
 
     const formal = buildRewriteMessage({
@@ -127,7 +127,7 @@ describe("planResponse", () => {
       selectedText: COFFEE_MARKDOWN,
     });
     expect(planResponse({ ...chat(formal), mode: "rewrite" })).toMatchObject({
-      input: { selected_text: COFFEE_MARKDOWN, replacement: COFFEE_MARKDOWN.replaceAll("Coffee", "COFFEE") },
+      input: { replacement: COFFEE_MARKDOWN.replaceAll("Coffee", "COFFEE") },
     });
   });
 

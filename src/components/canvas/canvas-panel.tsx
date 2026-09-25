@@ -97,9 +97,16 @@ function downloadUrl(url: string) {
   a.remove();
 }
 
-type Props = { canvas: Canvas; chatBusy: boolean; model: string; testHooks: boolean };
+type Props = {
+  canvas: Canvas;
+  chatBusy: boolean;
+  model: string;
+  testHooks: boolean;
+  /** Send a chat message, e.g. to ask the AI to fix a diagram that could not be drawn. */
+  onAskChat?: (text: string) => void;
+};
 
-export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
+export function CanvasPanel({ canvas, chatBusy, model, testHooks, onAskChat }: Props) {
   const { artifacts, doc, preview, openId, error, rewriting, saveState } = canvas;
   const docEditor = useRef<DocumentEditorHandle>(null);
   const diagramEditor = useRef<DiagramEditorHandle>(null);
@@ -625,6 +632,25 @@ export function CanvasPanel({ canvas, chatBusy, model, testHooks }: Props) {
           <div className="flex h-full flex-col items-center justify-center gap-1 text-sm text-muted-foreground">
             <p>No artifact is open.</p>
             <p>Ask for a document or diagram, or use New in the chat header.</p>
+          </div>
+        ) : !doc && error ? (
+          // The AI's diagram could not be drawn (e.g. Mermaid the browser can't parse): offer a fix.
+          <div className="flex h-full flex-col items-center justify-center gap-3 px-10 text-center text-sm text-muted-foreground">
+            <p>This diagram couldn&apos;t be drawn from what the AI wrote.</p>
+            {onAskChat && (
+              <Button
+                data-testid="diagram-fix"
+                disabled={chatBusy}
+                onClick={async () => {
+                  const title = artifact?.title ?? "the diagram";
+                  const reason = error.replace(/^Could not draw the diagram:\s*/, "");
+                  await canvas.deleteOpen();
+                  onAskChat(`The diagram "${title}" couldn't be drawn: ${reason}\nPlease fix it and draw it again.`);
+                }}
+              >
+                <WandSparkles /> Fix with AI
+              </Button>
+            )}
           </div>
         ) : !doc ? (
           <CenteredSpinner label="Loading" />

@@ -24,6 +24,34 @@ describe("neutral graph (G10)", () => {
     expect(g.groups).toEqual([{ id: "be", label: "Backend", parent: undefined }]);
   });
 
+  it("accepts what real models send: other shape names and nulls", () => {
+    // inclusionai/ling-3.0-flash-vl, 2026-09-25: rejected outright before.
+    const g = parseGraphJson(
+      JSON.stringify({
+        nodes: [
+          { id: "db", label: "Orders DB", shape: "cylinder", group: "be" },
+          { id: "q", shape: "decision", color: null, group: "be" },
+          { id: "x", shape: "hexagon", group: null },
+        ],
+        edges: [{ from: "q", to: "db", label: null, dashed: null, arrow: null }],
+        groups: [{ id: "be", label: "Backend", parent: null }],
+      }),
+    );
+    expect(g.nodes.map((n) => [n.id, n.shape, n.group])).toEqual([
+      ["db", "ellipse", "be"],
+      ["q", "diamond", "be"],
+      ["x", "rectangle", undefined],
+    ]);
+    expect(g.edges).toEqual([{ from: "q", to: "db" }]);
+    expect(g.groups).toEqual([{ id: "be", label: "Backend", parent: undefined }]);
+  });
+
+  it("rejects a group no node belongs to, saying how to fix it", () => {
+    expect(() =>
+      normalizeGraph({ nodes: [{ id: "api" }], groups: [{ id: "backend", label: "Backend Services" }] }),
+    ).toThrow('group "backend" has no nodes: set "group": "backend" on the nodes that belong in it');
+  });
+
   it("rejects duplicate ids and unknown groups with a readable message", () => {
     expect(() => normalizeGraph({ nodes: [{ id: "a" }, { id: "a" }] })).toThrow('node id "a" is used twice');
     expect(() => normalizeGraph({ nodes: [{ id: "a", group: "x" }] })).toThrow('unknown group "x"');
@@ -66,6 +94,15 @@ describe("Graphviz DOT (G10)", () => {
     ]);
     const u = parseDot("graph { a -- b }");
     expect(u.edges).toEqual([{ from: "a", to: "b", arrow: "none" }]);
+  });
+
+  it("accepts unquoted #hex colours, as real models write them", () => {
+    // From inclusionai/ling-3.0-flash-vl, 2026-09-25.
+    const g = parseDot(
+      'digraph {\n  node [shape=box, style=filled, fillcolor="#dbeafe"];\n  edge [color=#4b5563, fontsize=10];\n  a -> b [color=#dc2626];\n}',
+    );
+    expect(g.edges).toEqual([{ from: "a", to: "b" }]);
+    expect(g.nodes[0]!.color).toBe("#dbeafe");
   });
 
   it("reports errors with a line number", () => {

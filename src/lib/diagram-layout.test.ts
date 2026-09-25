@@ -105,7 +105,7 @@ describe("arrow routing", () => {
     const back = out.find((e) => e.id === "back")!;
     const go = out.find((e) => e.id === "go")!;
     expect((go.points as unknown[]).length).toBe(2);
-    expect((back.points as unknown[]).length).toBe(4);
+    expect((back.points as unknown[]).length).toBeGreaterThan(2);
     expect(back.startBinding).toEqual({ elementId: "run" });
   });
 });
@@ -142,6 +142,24 @@ describe("crowded graphs", () => {
         for (const [p, q] of segments(a)) expect(crosses(p, q, r), `${a.id} through ${r.id}`).toBe(false);
     }
   };
+
+  it("routes a back edge around the shapes sharing its column, both directions (real model, 2026-09-25)", () => {
+    // Orders Service → Payments / Orders DB, and the payment result back to Orders Service.
+    for (const direction of ["right", "down"] as const) {
+      const out = tidyLayout(
+        [
+          ...box("os", 0, 0),
+          ...box("pp", 0, 100),
+          ...box("db", 0, 200),
+          arrow("charge", "os", "pp"),
+          arrow("save", "os", "db"),
+          arrow("result", "pp", "os"),
+        ],
+        { direction },
+      );
+      noArrowThroughShapes(out);
+    }
+  });
 
   it("puts a source next to its target instead of spanning columns (ER: PRODUCT → LINE_ITEM)", () => {
     const out = tidyLayout([

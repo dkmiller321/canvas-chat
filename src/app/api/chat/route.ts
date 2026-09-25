@@ -1,4 +1,6 @@
 import {
+  InvalidToolInputError,
+  NoSuchToolError,
   consumeStream,
   convertToModelMessages,
   createUIMessageStream,
@@ -66,7 +68,16 @@ export async function POST(req: Request) {
 
   // Tool failures meant for the model (e.g. "text not found") are useful to the user too;
   // anything else stays generic so server details don't leak.
-  const onError = (error: unknown) => (error instanceof ToolError ? error.message : "An error occurred.");
+  // Tool errors are about the model's own input, so they are safe (and useful) to show; anything else stays generic.
+  const onError = (error: unknown) => {
+    if (error instanceof ToolError) return error.message;
+    if (InvalidToolInputError.isInstance(error) || NoSuchToolError.isInstance(error)) {
+      return "The model's tool call was malformed; it can retry.";
+    }
+    // Real-model testing showed tool calls failing with only "An error occurred."; keep the cause in the server log.
+    console.error("chat stream error:", error);
+    return "An error occurred.";
+  };
 
   const stream = createUIMessageStream({
     originalMessages: messages,

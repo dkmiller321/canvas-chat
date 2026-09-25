@@ -5,6 +5,7 @@ import { compoundLayout } from "@/lib/diagram-compound";
 import { type Graph, elementIds, graphToSkeleton } from "@/lib/diagram-formats/graph";
 import type { tidyLayout } from "@/lib/diagram-layout";
 import { styleElements } from "@/lib/diagram-style";
+import { isFlowchart, parseFlowchart } from "@/lib/diagram-formats/mermaid-flowchart";
 import { parseFallback } from "@/lib/mermaid-fallback";
 
 /**
@@ -75,6 +76,8 @@ export async function mermaidToScene(mermaid: string, source: DiagramSource = { 
   // as a flat image (and logs errors doing so), so use our converter directly.
   const fallback = parseFallback(mermaid);
   if (fallback) return graphToScene(fallback, source);
+  // Flowcharts: our parser, the same one the server checked the model's source with (G10).
+  if (isFlowchart(mermaid)) return graphToScene(parseFlowchart(mermaid), source);
   const native = await parseMermaidToExcalidraw(mermaid, { themeVariables: { fontSize: "20px" } });
   const elements = convertToExcalidrawElements(native.elements as Skeleton, { regenerateIds: true });
   return scene(styleElements(elements), native.files ?? {}, source);

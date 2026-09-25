@@ -30,17 +30,21 @@ export class DiagramSyntaxError extends Error {
   }
 }
 
-/** The JSON graph the AI (or the user, in the source panel) writes. */
+/**
+ * The JSON graph the AI (or the user, in the source panel) writes. Lenient where
+ * real models slip (2026-09-25): any shape name (mapped to ours) and null for
+ * anything optional.
+ */
 export const graphInput = z.object({
-  direction: z.enum(["right", "down"]).optional().describe("Flow direction; default right"),
+  direction: z.enum(["right", "down"]).nullish().describe("Flow direction; default right"),
   nodes: z
     .array(
       z.object({
         id: z.string().min(1),
-        label: z.string().optional().describe("Shown text; defaults to the id"),
-        shape: z.enum(["rectangle", "ellipse", "diamond"]).optional(),
-        group: z.string().optional().describe("Id of a group in `groups`"),
-        color: z.string().optional().describe("Fill colour, e.g. #ffc9c9"),
+        label: z.string().nullish().describe("Shown text; defaults to the id"),
+        shape: z.string().nullish().describe("rectangle (default), ellipse or diamond"),
+        group: z.string().nullish().describe("Id of the group this node sits in"),
+        color: z.string().nullish().describe("Fill colour, e.g. #ffc9c9"),
       }),
     )
     .min(1),
@@ -49,28 +53,36 @@ export const graphInput = z.object({
       z.object({
         from: z.string().min(1),
         to: z.string().min(1),
-        label: z.string().optional(),
-        dashed: z.boolean().optional(),
-        arrow: z.enum(["end", "none", "both"]).optional().describe("Arrowheads; default end"),
+        label: z.string().nullish(),
+        dashed: z.boolean().nullish(),
+        arrow: z.enum(["end", "none", "both"]).nullish().describe("Arrowheads; default end"),
       }),
     )
-    .optional(),
+    .nullish(),
   groups: z
     .array(
       z.object({
         id: z.string().min(1),
-        label: z.string().optional(),
-        parent: z.string().optional().describe("Id of an enclosing group"),
+        label: z.string().nullish(),
+        parent: z.string().nullish().describe("Id of an enclosing group"),
       }),
     )
-    .optional()
-    .describe("Boxes drawn around their member nodes"),
+    .nullish()
+    .describe("Boxes drawn around the nodes whose `group` is their id"),
 });
 export type GraphInput = z.infer<typeof graphInput>;
 
-/** Validated input → Graph. Edges to unknown ids create plain nodes; unknown groups are an error. */
+/** Any shape name → one we draw. */
+function shapeOf(name: string | null | undefined): NodeShape {
+  const s = (name ?? "").toLowerCase();
+  if (/ellipse|circle|oval|cylinder|database|\bdb\b|stadium|pill|person|actor/.test(s)) return "ellipse";
+  if (/diamond|decision|rhomb|question/.test(s)) return "diamond";
+  return "rectangle";
+}
+
+/** Validated input → Graph. Edges to unknown ids create plain nodes; unknown or empty groups are an error. */
 export function normalizeGraph(input: GraphInput): Graph {
-  const groups = (input.groups ?? []).map((g) => ({ id: g.id, label: g.label ?? g.id, parent: g.parent }));
+  const groups = (input.groups ?? []).map((g) => ({ id: g.id, label: g.label ?? g.id, parent: g.parent ?? undefined }));
   const groupIds = new Set(groups.map((g) => g.id));
   for (const g of groups) {
     if (g.parent && !groupIds.has(g.parent))
@@ -86,10 +98,20 @@ export function normalizeGraph(input: GraphInput): Graph {
     nodes.push({
       id: n.id,
       label: n.label ?? n.id,
-      shape: n.shape ?? "rectangle",
+      shape: shapeOf(n.shape),
       ...(n.group ? { group: n.group } : {}),
       ...(n.color ? { color: n.color } : {}),
     });
+  }
+  // A group nothing sits in draws nothing, yet the model then says it grouped the nodes.
+  const used = (gid: string): boolean =>
+    nodes.some((n) => n.group === gid) || groups.some((c) => c.parent === gid && used(c.id));
+  for (const g of groups) {
+    if (!used(g.id)) {
+      throw new DiagramSyntaxError(
+        `group "${g.id}" has no nodes: set "group": "${g.id}" on the nodes that belong in it`,
+      );
+    }
   }
   const edges: GraphEdge[] = [];
   for (const e of input.edges ?? []) {

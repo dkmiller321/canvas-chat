@@ -27,10 +27,9 @@ export const editDocumentInput = z.object({
     .describe("Targeted find-and-replace edits, applied in order. Every find must match exactly."),
 });
 
+/** The selection is bound on the server, so the model only writes the replacement (never re-types the passage). */
 export const rewriteSelectionInput = z.object({
-  artifact_id: z.string().describe("Id of the document"),
-  selected_text: z.string().min(1).describe("The selected Markdown, copied verbatim from the request"),
-  replacement: z.string().describe("Markdown that replaces the selection"),
+  replacement: z.string().describe("Markdown (or code) that replaces the selection"),
 });
 
 const skeletonElement = z.object({

@@ -3,6 +3,7 @@ import { addVersion, createArtifact, getArtifact, type ArtifactDto, type Artifac
 import { normalizeLanguage } from "@/lib/code-languages";
 import { DiagramSyntaxError, parseSource } from "@/lib/diagram-formats";
 import { normalizeGraph } from "@/lib/diagram-formats/graph";
+import { isFlowchart, parseFlowchart } from "@/lib/diagram-formats/mermaid-flowchart";
 import { applyDiagramOps } from "./diagram";
 import { ToolError, applyEdits, rewriteSelection } from "./document";
 import { parseScene } from "./scene";
@@ -37,7 +38,11 @@ export function diagramContent(input: {
   elements?: unknown[];
 }): Omit<CreateDiagramOutput, "artifactId" | "title"> {
   try {
-    if (input.mermaid) return { mermaid: input.mermaid };
+    if (input.mermaid) {
+      // Flowcharts are checked here (other Mermaid types are converted, and can only fail, in the browser).
+      if (isFlowchart(input.mermaid)) parseFlowchart(input.mermaid);
+      return { mermaid: input.mermaid };
+    }
     if (input.graph) {
       normalizeGraph(input.graph);
       return { source: { language: "graph", code: JSON.stringify(input.graph, null, 2) } };
@@ -146,17 +151,19 @@ export function chatTools(conversationId: string) {
   };
 }
 
-/** The highlight-to-edit / quick-action tool, bound to one document. */
-export function rewriteTools(artifactId: string) {
+/**
+ * The highlight-to-edit / quick-action tool, bound to one document and its selection
+ * (null: the whole document). The model sends only the replacement text.
+ */
+export function rewriteTools(artifactId: string, selection: string | null) {
   return {
     rewrite_selection: tool({
-      description: "Replace the selected passage of the document with rewritten Markdown.",
+      description: "Replace the selected passage (or the whole document, if nothing is selected) with rewritten text.",
       inputSchema: rewriteSelectionInput,
-      execute: async ({ artifact_id, selected_text, replacement }): Promise<EditOutput> => {
-        if (artifact_id !== artifactId) throw new ToolError(`Use artifact_id ${artifactId}.`);
+      execute: async ({ replacement }): Promise<EditOutput> => {
         const artifact = await getArtifact(artifactId);
         if (!artifact || artifact.kind === "diagram") throw new ToolError("Document not found.");
-        const next = rewriteSelection(current(artifact), selected_text, replacement);
+        const next = selection === null ? replacement : rewriteSelection(current(artifact), selection, replacement);
         const version = await addVersion(artifactId, next, "ai");
         return { artifactId, versionNo: version.versionNo };
       },

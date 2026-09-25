@@ -160,3 +160,16 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 41. **[stack] Grouped layout needs a compound (nested) algorithm from the start.** Keeping group members together within columns is a dead end for nested containers. Laying out each group on its own and placing it as one box is simple (about 250 lines here) and makes frame overlap impossible by construction.
     - *Kit change:* note in the diagramming stack guidance: "groups/containers → compound layout plus ports", and consider ELK (elkjs, EPL-2.0) as a pre-approved option if a project needs orthogonal routing.
+
+### 2026-09-25 · First real-model run
+
+42. **[process] The mock model hid a whole class of bugs.** Each of these would affect any real model, and scripted mocks never produce them: invalid Mermaid, verbose or garbled tool arguments, reasoning tokens consuming a tiny output budget, `null` in optional fields, and extra shape names. 11 app bugs surfaced in about an hour of real use.
+    - *Kit change:* make a short real-model session (with a cheap model and a spend cap) a required step before calling any stage with LLM tool calls done. Also add "adversarial" mock scripts that send malformed tool input, `null`s and invalid diagram source, so specs cover the failure paths.
+
+43. **[stack] Anything the model writes should be checked where the model can see the error.** Browser-only conversion (Mermaid) meant failures went unseen by the model, which then told the user it had succeeded. Every tool input should be fully validated in the tool's `execute`.
+    - *Kit change:* add to CLAUDE.md conventions: "Tools must reject bad input with an actionable message; never defer validation to the client."
+
+44. **[stack] Don't make the model re-type what the server already knows.** `rewrite_selection` required copying the whole selection verbatim. Bind server-known context in the tool closure instead.
+
+45. **[process] "It looks cut off" needs a measurement, not a guess.** Four rebuilds fixed real races, but the actual cause was Excalidraw's floating toolbars over a correctly fitted canvas. Sampling `appState` through the test hook found it in one step.
+    - *Kit change:* when a visual bug survives one fix, measure state (test hook, DOM rects) before changing code again.

@@ -429,3 +429,32 @@ Known limits:
 - DOT, PlantUML and D2 are subsets (docs/DECISIONS.md #23). PlantUML activity diagrams are rejected with a message.
 - Arrows between groups can still cross each other in the gaps.
 - The real model is untested (no key).
+
+## Real-model testing (2026-09-25)
+
+The first run against a real model: `inclusionai/ling-3.0-flash-vl` through OpenRouter. The owner chose this cheap model on purpose. It is a small reasoning model, so model-side weaknesses (slow reasoning, loose instruction following) are noted but not designed around. Only app bugs, and changes that help any model, were fixed.
+
+- `RUN_SMOKE=1 BASE_URL=http://127.0.0.1:3000 pnpm test:e2e --grep @smoke`: **4/4 pass** (15–17 s), before and after the fixes.
+- Manual MCP walkthrough of documents, follow-up edits, highlight-to-edit, quick actions, titles, diagrams in every format, diagram edits via chat, and Ask AI on shapes.
+- After the fixes: `pnpm test` 142/142. The mock E2E suite passed 52/52 against the Compose stack, with a compose override that blanks the model settings, because E2E-04/27 need the two mock models.
+
+App bugs found and fixed (each has a unit test built from the real model's output):
+1. **Chat titles were always "New chat".** A reasoning model spent the whole 30-token budget thinking. Title calls now turn reasoning off, and `cleanTitle` keeps the first line and strips Markdown (the model kept writing past the title).
+2. **Whole-document quick actions failed.** `rewrite_selection` made the model re-type the whole document as `selected_text`; it garbled it, leaking tool-call markup. The selection is now bound on the server and the tool takes only `replacement`, which is faster and robust for any model.
+3. **Invalid Mermaid flowcharts failed silently.** They reached the browser, failed there, and left a canvas stuck on "Loading" while the model told the user it had drawn the diagram. There is now a Mermaid flowchart parser (`src/lib/diagram-formats/mermaid-flowchart.ts`) that checks on the server (line-numbered errors go back to the model) and draws in the browser. Anything that still fails in the browser shows the error and a **Fix with AI** button.
+4. **Mermaid subgraphs listed after the edges were dropped.** Mentioning a node inside a subgraph now moves it in, as Mermaid does.
+5. **DOT with unquoted colours (`color=#4b5563`) was rejected.** It is now accepted.
+6. **JSON graphs were rejected for `shape: "cylinder"` or `null` fields.** Both are now accepted; shape names map onto ours.
+7. **An empty group was silently drawn as nothing.** The model then claimed it had grouped the nodes. This is now an error that says how to fix it.
+8. **Architecture layout: arrows crossed boxes and labels piled up.**
+   - Port slots are inside their frames.
+   - A new label-placement pass (`src/lib/diagram-labels.ts`) keeps labels clear of shapes, of other labels and of frame borders.
+   - Gaps crossed by many labels get extra room.
+   - Back edges route through the gaps between columns, beyond all shapes.
+9. **An AI-added shape landed on an existing one.** The model chose taken coordinates. `add` now keeps a requested spot only if it is free.
+10. **Large diagrams were half hidden.** They fit the canvas, but Excalidraw's own toolbars float over its top and bottom. `fitView` (`src/lib/diagram-view.ts`) fits drawings into the unobstructed area. It also fixed two races: the first view is now set only after Excalidraw has measured the canvas and finished loading.
+11. **Failed tool calls showed only "An error occurred."** Malformed tool calls now say so, and unexpected errors are logged on the server.
+
+Model-side observations (not fixed):
+- Replies after tool calls are longer than the prompt asks. The prompt was tightened, and the replies improved.
+- "Ask AI" on a selected diagram shape took about 3 minutes, and the model added a new shape instead of restyling the selected one.

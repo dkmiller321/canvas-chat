@@ -219,7 +219,9 @@ export function ChatView({
       <SplitPane
         left={chat}
         right={
-          canvas.panelOpen ? <CanvasPanel canvas={canvas} chatBusy={busy} model={model} testHooks={testHooks} /> : null
+          canvas.panelOpen ? (
+            <CanvasPanel canvas={canvas} chatBusy={busy} model={model} testHooks={testHooks} onAskChat={send} />
+          ) : null
         }
       />
     </CanvasActionsContext>

@@ -201,8 +201,11 @@ function layoutRight<T extends El>(elements: T[]): T[] {
   // A gap must fit the widest label on the arrows leaving that column.
   const gapAfter = (col: Slot[]) => {
     const ids = new Set(col.map((n) => n.id));
-    const widest = Math.max(0, ...links.filter((l) => ids.has(l.from)).map((l) => labelWidth.get(l.arrow) ?? 0));
-    return Math.max(COLUMN_GAP, widest + 60);
+    const labelled = links.filter((l) => ids.has(l.from) && labelWidth.has(l.arrow));
+    const widest = Math.max(0, ...labelled.map((l) => labelWidth.get(l.arrow)!));
+    // Several labels crossing one gap need room to be staggered along it.
+    const crowd = Math.max(0, new Set(labelled.map((l) => l.arrow)).size - 2) * 16;
+    return Math.max(COLUMN_GAP, widest + 60) + crowd;
   };
   for (const col of columns) {
     if (!col) continue;
@@ -215,6 +218,28 @@ function layoutRight<T extends El>(elements: T[]): T[] {
     }
     x += width + gapAfter(col);
   }
+
+  // Extent of each column, for routing back edges around them.
+  const colBox = columns.map((col) => {
+    if (!col?.length) return undefined;
+    const boxes = col.map((s) => placed.get(s.id)!);
+    return {
+      x0: Math.min(...boxes.map((b) => b.x)),
+      x1: Math.max(...boxes.map((b) => b.x + b.width)),
+      y1: Math.max(...boxes.map((b) => b.y + b.height)),
+    };
+  });
+  const spanned = (a: number, b: number) => colBox.slice(a, b + 1).filter((c) => c !== undefined);
+  /** Middle of the gap before column c (or just left of it, for the first). */
+  const gapLeftOf = (c: number) => {
+    const prev = colBox.slice(0, c).findLast((b) => b !== undefined);
+    return prev ? (prev.x1 + colBox[c]!.x0) / 2 : colBox[c]!.x0 - 40;
+  };
+  /** Middle of the gap after column c (or just right of it, for the last). */
+  const gapRightOf = (c: number) => {
+    const next = colBox.slice(c + 1).find((b) => b !== undefined);
+    return next ? (colBox[c]!.x1 + next.x0) / 2 : colBox[c]!.x1 + 40;
+  };
 
   const moved = new Map<string, { dx: number; dy: number }>();
   for (const n of nodes) {
@@ -240,25 +265,47 @@ function layoutRight<T extends El>(elements: T[]): T[] {
       const from = fromId ? placed.get(fromId) : undefined;
       const to = toId ? placed.get(toId) : undefined;
       if (!from || !to) return e;
-      // An arrow pointing back up the flow bends below the shapes so it doesn't
-      // lie on top of the forward arrow between the same pair.
-      const backwards = (rank.get(toId!) ?? 0) <= (rank.get(fromId!) ?? 0) && fromId !== toId;
+      // An arrow pointing back up the flow leaves into the gap before its column,
+      // runs below every shape in the columns it spans, and comes back up the gap
+      // after its target's column, so it crosses no shape (and doesn't lie on the
+      // forward arrow between the same pair).
+      const rf = rank.get(fromId!) ?? 0;
+      const rt = rank.get(toId!) ?? 0;
+      const backwards = rt <= rf && fromId !== toId;
       if (backwards) {
-        const start = { x: from.x + from.width / 2, y: from.y + from.height };
-        const end = { x: to.x + to.width / 2, y: to.y + to.height };
-        const dip = Math.max(start.y, end.y) + 50;
-        const points: [number, number][] = [
-          [0, 0],
-          [0, dip - start.y],
-          [end.x - start.x, dip - start.y],
-          [end.x - start.x, end.y - start.y],
-        ];
+        const cy = (b: Box) => b.y + b.height / 2;
+        let points: { x: number; y: number }[];
+        if (rf === rt) {
+          // Same column: through the gap after it.
+          const gx = gapRightOf(rf);
+          points = [
+            { x: from.x + from.width, y: cy(from) },
+            { x: gx, y: cy(from) },
+            { x: gx, y: cy(to) },
+            { x: to.x + to.width, y: cy(to) },
+          ];
+        } else {
+          const dip = Math.max(...spanned(rt, rf).map((c) => c.y1)) + 50;
+          const xa = gapLeftOf(rf) + 12;
+          const xb = gapRightOf(rt) - 12;
+          points = [
+            { x: from.x, y: cy(from) },
+            { x: xa, y: cy(from) },
+            { x: xa, y: dip },
+            { x: xb, y: dip },
+            { x: xb, y: cy(to) },
+            { x: to.x + to.width, y: cy(to) },
+          ];
+        }
+        const start = points[0]!;
+        const xs = points.map((p) => p.x);
+        const ys = points.map((p) => p.y);
         return bump(e, {
           x: start.x,
           y: start.y,
-          width: Math.abs(end.x - start.x),
-          height: dip - Math.min(start.y, end.y),
-          points,
+          width: Math.max(...xs) - Math.min(...xs),
+          height: Math.max(...ys) - Math.min(...ys),
+          points: points.map((p) => [p.x - start.x, p.y - start.y] as [number, number]),
           roundness: { type: 2 },
         });
       }

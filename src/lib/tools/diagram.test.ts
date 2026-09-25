@@ -117,3 +117,26 @@ describe("preset operation (G7)", () => {
     }
   });
 });
+
+describe("add at a taken spot (real model, 2026-09-25)", () => {
+  it("moves a new shape off the one already at the requested coordinates", () => {
+    // The model asked for x: 510, y: 10, right on top of Dashboard (500, 0).
+    const next = applyDiagramOps(loginFlow(), [
+      { op: "add", id: "fc", type: "rectangle", label: "Fraud Check", x: 510, y: 10 },
+    ]);
+    const shapes = next.elements.filter((e) => e.type === "rectangle" && !e.isDeleted);
+    const fc = shapes.find((s) => s.id !== "u" && s.id !== "l" && s.id !== "d")!;
+    for (const s of shapes.filter((s) => s !== fc)) {
+      const overlap = fc.x < s.x + s.width && s.x < fc.x + fc.width && fc.y < s.y + s.height && s.y < fc.y + fc.height;
+      expect(overlap, `Fraud Check on ${s.id}`).toBe(false);
+    }
+    // It stays close to where it was asked for.
+    expect(Math.hypot(fc.x - 510, fc.y - 10)).toBeLessThan(250);
+  });
+
+  it("keeps a requested spot that is free", () => {
+    const next = applyDiagramOps(loginFlow(), [{ op: "add", type: "rectangle", label: "Cache", x: 250, y: 300 }]);
+    const cache = next.elements.find((e) => e.type === "rectangle" && !["u", "l", "d"].includes(e.id))!;
+    expect([cache.x, cache.y]).toEqual([250, 300]);
+  });
+});

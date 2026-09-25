@@ -7,6 +7,37 @@ import { ARCH_GRAPH } from "./llm/mock-scripts";
 
 type E = Parameters<typeof compoundLayout>[0][number];
 
+const SAAS_GRAPH = {
+  direction: "down" as const,
+  nodes: [
+    { id: "web", label: "Web Client", group: "clients" },
+    { id: "mobile", label: "Mobile Client", group: "clients" },
+    { id: "api", label: "API Gateway", group: "backend" },
+    { id: "auth", label: "Auth Service", group: "backend" },
+    { id: "billing", label: "Billing Workers", group: "backend" },
+    { id: "postgres", label: "Postgres", shape: "ellipse" as const, group: "data" },
+    { id: "redis", label: "Redis", shape: "ellipse" as const, group: "data" },
+    { id: "s3", label: "S3", shape: "ellipse" as const, group: "data" },
+  ],
+  edges: [
+    { from: "web", to: "api", label: "HTTPS" },
+    { from: "mobile", to: "api", label: "HTTPS" },
+    { from: "api", to: "auth", label: "verify token" },
+    { from: "api", to: "billing", label: "enqueue job" },
+    { from: "api", to: "postgres", label: "queries" },
+    { from: "api", to: "redis", label: "cache" },
+    { from: "billing", to: "postgres", label: "records" },
+    { from: "billing", to: "s3", label: "invoices" },
+    { from: "auth", to: "redis", label: "sessions" },
+    { from: "auth", to: "postgres", label: "users" },
+  ],
+  groups: [
+    { id: "clients", label: "Clients" },
+    { id: "backend", label: "Backend" },
+    { id: "data", label: "Data Layer" },
+  ],
+};
+
 /** Elements as the browser would build them: one box per node (with its label) and one bound arrow per edge. */
 function elements(g: Graph) {
   const ids = elementIds(g);
@@ -16,7 +47,7 @@ function elements(g: Graph) {
     els.push({ id, type: "rectangle", x: i * 10, y: i * 10, width: 120, height: 60 });
     els.push({ id: `${id}-t`, type: "text", x: i * 10 + 20, y: i * 10 + 18, width: 80, height: 25, containerId: id });
   });
-  g.edges.forEach((e, i) =>
+  g.edges.forEach((e, i) => {
     els.push({
       id: `a${i}`,
       type: "arrow",
@@ -26,9 +57,40 @@ function elements(g: Graph) {
       height: 0,
       startBinding: { elementId: ids.get(e.from)! },
       endBinding: { elementId: ids.get(e.to)! },
-    }),
-  );
+    });
+    // Label text as Excalidraw sizes it at 20px: about 11px a character.
+    if (e.label) {
+      els.push({
+        id: `a${i}-t`,
+        type: "text",
+        x: 0,
+        y: 0,
+        width: e.label.length * 11,
+        height: 25,
+        containerId: `a${i}`,
+        text: e.label,
+      });
+    }
+  });
   return { ids, els };
+}
+
+/** Where Excalidraw draws an arrow's label: the middle point, or the middle of the middle segment. */
+function labelBox(a: E, text: E): E {
+  const pts = (a.points as [number, number][]).map(([x, y]) => [a.x + x, a.y + y] as [number, number]);
+  const n = pts.length;
+  const [cx, cy] =
+    n % 2 === 1
+      ? pts[(n - 1) / 2]!
+      : [(pts[n / 2 - 1]![0] + pts[n / 2]![0]) / 2, (pts[n / 2 - 1]![1] + pts[n / 2]![1]) / 2];
+  return {
+    id: text.id,
+    type: "text",
+    x: cx - text.width / 2,
+    y: cy - text.height / 2,
+    width: text.width,
+    height: text.height,
+  };
 }
 
 const overlap = (a: E, b: E) =>
@@ -90,20 +152,19 @@ function check(g: Graph) {
       for (let k = 1; k < pts.length; k++)
         expect(crosses(pts[k - 1]!, pts[k]!, s), `${a.id} through ${s.id}`).toBe(false);
   }
-  // An arrow's label point (its middle point) sits outside every frame holding only one of its ends.
-  const nodeOf = new Map(g.nodes.map((n) => [ids.get(n.id)!, n]));
-  for (const a of out.filter((e) => e.type === "arrow")) {
-    const pts = a.points as [number, number][];
-    if (pts.length % 2 === 0) continue;
-    const [mx, my] = pts[(pts.length - 1) / 2]!;
-    const mid = { x: a.x + mx, y: a.y + my, width: 0, height: 0 } as E;
-    const fromGroups = new Set(ancestors(nodeOf.get(a.startBinding!.elementId)!.group));
-    const toGroups = new Set(ancestors(nodeOf.get(a.endBinding!.elementId)!.group));
+  // Arrow labels overlap neither each other, nor any shape, nor a frame's border.
+  const labels = out
+    .filter((t) => t.type === "text" && byId.get(t.containerId ?? "")?.type === "arrow")
+    .map((t) => labelBox(byId.get(t.containerId!)!, t));
+  for (const l of labels)
     for (const f of frames) {
-      if (fromGroups.has(f.id) === toGroups.has(f.id)) continue;
-      expect(encloses(byGroup.get(f.id)!, mid), `${a.id} label inside ${f.id}`).toBe(false);
+      const fr = byGroup.get(f.id)!;
+      expect(overlap(l, fr) && !encloses(fr, l), `label ${l.id} on the border of ${f.id}`).toBe(false);
     }
-  }
+  for (const l of labels)
+    for (const s of shapes) expect(overlap(l, s), `label ${l.text ?? l.id} on ${s.id}`).toBe(false);
+  for (const a of labels)
+    for (const b of labels) if (a.id < b.id) expect(overlap(a, b), `labels ${a.id}/${b.id}`).toBe(false);
   // Labels move with their shapes.
   for (const n of g.nodes) {
     const id = ids.get(n.id)!;
@@ -134,6 +195,11 @@ cloud.app.api -> cloud.data.redis`),
 
   it("lays out the S25 architecture graph", () => {
     check(normalizeGraph(ARCH_GRAPH as Parameters<typeof normalizeGraph>[0]));
+  });
+
+  it("lays out a real model's top-down architecture graph cleanly", () => {
+    // inclusionai/ling-3.0-flash-vl, 2026-09-25: labels piled up and arrows crossed boxes.
+    check(normalizeGraph(SAAS_GRAPH));
   });
 
   it("lays out DOT clusters top to bottom", () => {

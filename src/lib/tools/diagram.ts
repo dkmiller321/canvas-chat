@@ -149,6 +149,35 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
     return box;
   }
 
+  /**
+   * The requested box if it is free, else the nearest free spot around it (rings of
+   * candidate positions). Group frames don't count: a shape may go inside one.
+   */
+  function clear(box: Box): Box {
+    const all = shapes();
+    const frame = (e: SceneElement) =>
+      all.some(
+        (o) =>
+          o !== e && o.x >= e.x && o.y >= e.y && o.x + o.width <= e.x + e.width && o.y + o.height <= e.y + e.height,
+      );
+    const obstacles = all.filter((e) => !frame(e));
+    const free = (b: Box) => !obstacles.some((e) => overlaps(e, b));
+    if (free(box)) return box;
+    const stepX = box.width + GAP / 3;
+    const stepY = box.height + GAP / 3;
+    for (let ring = 1; ring <= 8; ring++) {
+      const spots: Box[] = [];
+      for (let dx = -ring; dx <= ring; dx++)
+        for (let dy = -ring; dy <= ring; dy++)
+          if (Math.max(Math.abs(dx), Math.abs(dy)) === ring)
+            spots.push({ ...box, x: box.x + dx * stepX, y: box.y + dy * stepY });
+      spots.sort((a, b) => Math.hypot(a.x - box.x, a.y - box.y) - Math.hypot(b.x - box.x, b.y - box.y));
+      const spot = spots.find(free);
+      if (spot) return spot;
+    }
+    return box;
+  }
+
   function connect(arrow: SceneElement, from: SceneElement, to: SceneElement) {
     const start = edgePoint(from, center(to));
     const end = edgePoint(to, center(from));
@@ -223,7 +252,9 @@ export function applyDiagramOps(scene: Scene, operations: DiagramOperation[]): S
         }
         const [w, h] = DEFAULT_SIZE[op.type];
         const size = { width: op.width ?? w, height: op.height ?? h };
-        const box = op.x !== undefined && op.y !== undefined ? { x: op.x, y: op.y, ...size } : place(i, op.id, size);
+        // Models often pick coordinates that are already taken: keep the spot only if it is free.
+        const box =
+          op.x !== undefined && op.y !== undefined ? clear({ x: op.x, y: op.y, ...size }) : place(i, op.id, size);
         const el =
           op.type === "text"
             ? textElement(op.label ?? "", box, null)

@@ -17,5 +17,13 @@ describe("create_diagram input (G10)", () => {
     expect(call).toThrow(ToolError);
     expect(call).toThrow(/Could not read the diagram: line 2: .*Fix it and call create_diagram again/);
     expect(() => diagramContent({ graph: { nodes: [{ id: "a" }, { id: "a" }] } })).toThrow(ToolError);
+    // A real model's broken flowchart (2026-09-25) used to reach the browser and fail there, unseen by the model.
+    expect(() =>
+      diagramContent({ mermaid: 'flowchart LR\n    GW(["API Gateway"])\n    OS(["Orders Service")]\n    GW --> OS' }),
+    ).toThrow(/line 3: expected "\]\)"/);
+    // Sequence diagrams are drawn by mermaid-to-excalidraw and pass through unchecked.
+    expect(diagramContent({ mermaid: "sequenceDiagram\n  A->>B: hi" })).toEqual({
+      mermaid: "sequenceDiagram\n  A->>B: hi",
+    });
   });
 });

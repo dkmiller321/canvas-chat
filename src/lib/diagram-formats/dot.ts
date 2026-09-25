@@ -82,7 +82,8 @@ function tokenize(src: string): Token[] {
       tokens.push({ kind: "punct", value: c, line });
       i++;
     } else {
-      const m = src.slice(i).match(/^(-?(?:\.\d+|\d+(?:\.\d*)?)|[A-Za-z_\u0080-￿][\w\u0080-￿]*)/);
+      // Unquoted colours such as fillcolor=#dbeafe are strictly invalid DOT but common: read them as ids.
+      const m = src.slice(i).match(/^(-?(?:\.\d+|\d+(?:\.\d*)?)|[A-Za-z_\u0080-￿][\w\u0080-￿]*|#[0-9A-Fa-f]{3,8}\b)/);
       if (!m) throw new DiagramSyntaxError(`unexpected "${c}"`, line);
       tokens.push({ kind: "id", value: m[1]!, line });
       i += m[1]!.length;

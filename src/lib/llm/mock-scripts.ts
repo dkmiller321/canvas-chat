@@ -177,8 +177,7 @@ function planRewrite(r: MockRequest): MockStep {
   const req = parseRewriteMessage(r.lastUser);
   if (!req) return text(NO_SCRIPT);
   const instruction = req.instruction.toLowerCase();
-  const rewrite = (replacement: string) =>
-    tool(TOOL_NAMES.rewriteSelection, { artifact_id: req.artifactId, selected_text: req.selectedText, replacement });
+  const rewrite = (replacement: string) => tool(TOOL_NAMES.rewriteSelection, { replacement });
   if (instruction.includes("quick:formal")) return rewrite(req.selectedText.replaceAll("Coffee", "COFFEE"));
   if (instruction.includes("quick:comments")) return rewrite(`# Compute Fibonacci numbers.\n${req.selectedText}`);
   if (instruction.includes("shorten")) return rewrite("Grind beans fresh.");

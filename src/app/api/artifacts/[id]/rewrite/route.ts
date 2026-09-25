@@ -47,7 +47,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       selectedText: selectedText ?? document,
       document,
     }),
-    tools: rewriteTools(artifact.id),
+    tools: rewriteTools(artifact.id, selectedText),
     toolChoice: { type: "tool", toolName: "rewrite_selection" },
     stopWhen: stepCountIs(1),
     abortSignal: req.signal,

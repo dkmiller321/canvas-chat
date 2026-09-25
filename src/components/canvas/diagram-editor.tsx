@@ -16,6 +16,7 @@ import { useEffect, useImperativeHandle, useMemo, useRef, useState, type Ref } f
 import { Button } from "@/components/ui/button";
 import { tidyLayout } from "@/lib/diagram-layout";
 import { applyPreset, type Preset } from "@/lib/diagram-style";
+import { fitView, sceneBounds } from "@/lib/diagram-view";
 
 type Elements = Parameters<typeof hashElementsVersion>[0];
 type SceneLike = {
@@ -165,30 +166,48 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   const onUserChangeRef = useRef(onUserChange);
   onUserChangeRef.current = onUserChange;
 
-  // First load: a drawing larger than the canvas is zoomed out to fit (small ones stay at 100%).
+  const box = useRef<HTMLDivElement>(null);
+  /** Centre the drawing in the area the toolbars leave free, zooming out if it doesn't fit (lib/diagram-view). */
+  const showAll = (a: ExcalidrawImperativeAPI) => {
+    const bounds = sceneBounds(getNonDeletedElements(a.getSceneElements()));
+    const rect = box.current?.getBoundingClientRect();
+    if (!bounds || !rect?.width) return;
+    const v = fitView(bounds, rect);
+    a.updateScene({
+      appState: { zoom: { value: v.zoom as never }, scrollX: v.scrollX, scrollY: v.scrollY },
+      captureUpdate: CaptureUpdateAction.NEVER,
+    });
+  };
+  // First load. This effect is the only thing that sets the first view: Excalidraw's own
+  // initialData.scrollToContent ran at about the same moment and could reset the zoom after us.
   useEffect(() => {
     if (!api) return;
-    // The initial scene arrives a few frames after the API does.
+    // The initial scene arrives a few frames after the API does; act a couple of frames after that.
     let frame = 0;
     let tries = 0;
+    let settled = 0;
     const check = () => {
       const els = api.getSceneElements();
-      const { width, height } = api.getAppState();
-      if (!els.length || !width) {
-        if (++tries < 60) frame = requestAnimationFrame(check);
+      // The element's own size: until Excalidraw measures its container, appState holds the window size.
+      const { width, height } = box.current?.getBoundingClientRect() ?? { width: 0, height: 0 };
+      // scrollToContent zooms by appState's size too, so also wait until Excalidraw has measured the element,
+      // and until its own scene setup is done (it restores the default zoom and scroll when it finishes).
+      const state = api.getAppState();
+      const measured = !state.isLoading && Math.abs(state.width - width) < 2 && Math.abs(state.height - height) < 2;
+      if ((!els.length || !width || !measured) && ++tries < 120) {
+        frame = requestAnimationFrame(check);
         return;
       }
-      const x0 = Math.min(...els.map((e) => e.x));
-      const y0 = Math.min(...els.map((e) => e.y));
-      const x1 = Math.max(...els.map((e) => e.x + e.width));
-      const y1 = Math.max(...els.map((e) => e.y + e.height));
-      if (x1 - x0 > width * 0.9 || y1 - y0 > height * 0.9) {
-        api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9 });
+      if (!els.length) return;
+      if (++settled < 3) {
+        frame = requestAnimationFrame(check);
+        return;
       }
+      showAll(api);
     };
     frame = requestAnimationFrame(check);
     return () => cancelAnimationFrame(frame);
-  }, [api]);
+  }, [api]); // eslint-disable-line react-hooks/exhaustive-deps -- showAll only reads refs
 
   const shownKey = useRef(contentKey);
   useEffect(() => {
@@ -201,8 +220,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
     const kept = next.elements.filter((e) => before.has(e.id)).length;
     api.updateScene({ elements: next.elements, captureUpdate: CaptureUpdateAction.NEVER });
     // A redraw (new source, import) replaces most elements: bring it into view.
-    if (kept < next.elements.length / 2)
-      api.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9 });
+    if (kept < next.elements.length / 2) showAll(api);
   }, [api, content, contentKey]);
 
   const serialize = () => {
@@ -256,7 +274,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
       tidy: () => {
         replaceElements(tidyLayout);
         // The new layout can extend past the visible area: bring it all into view.
-        api?.scrollToContent(undefined, { fitToViewport: true, viewportZoomFactor: 0.9, animate: true });
+        if (api) showAll(api);
       },
     }),
     [api], // eslint-disable-line react-hooks/exhaustive-deps -- serialize only depends on api
@@ -270,7 +288,7 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
   }
 
   return (
-    <div data-testid="diagram-editor" className="relative h-full w-full">
+    <div ref={box} data-testid="diagram-editor" className="relative h-full w-full">
       {editable && selection.length > 0 && (
         <div className="absolute bottom-20 left-1/2 z-10 -translate-x-1/2">
           {asking ? (
@@ -318,7 +336,6 @@ export function DiagramEditor({ handleRef, content, contentKey, editable, onUser
           elements: initial.elements,
           files: initial.files as never,
           appState: { viewBackgroundColor: initial.background, gridModeEnabled: true, gridSize: 20, gridStep: 5 },
-          scrollToContent: true,
         }}
         viewModeEnabled={!editable}
         onLibraryChange={saveLibrary}

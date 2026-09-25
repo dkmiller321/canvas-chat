@@ -300,6 +300,7 @@ export function useCanvas({
     }
     const rest = artifacts.filter((a) => a.id !== id);
     setArtifacts(rest);
+    setError(null);
     openIdRef.current = null;
     setOpenId(null);
     setDoc(null);
