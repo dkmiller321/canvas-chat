@@ -47,3 +47,24 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 **Surprises**
 
 - None in behaviour. AI SDK v7 matches the v5-style `useChat`/`DefaultChatTransport` API closely. The mock implements `LanguageModelV4` directly rather than using `MockLanguageModelV4`, so it can look at the prompt and pace chunks itself.
+
+## Stage 2 — Persistence (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 47 passed / 0 failed |
+| `pnpm test:e2e --grep "@stage[012]"` | 1st run: 7 passed, 1 failed (E2E-07). After the fix: 8 passed / 0 failed (9.9 s) |
+
+**Playwright MCP walkthrough**
+
+- E2E-05: pass. After reload at `/c/<id>`: user `["Say hello"]`, assistant `["Hello! I am the mock model and streaming works."]`, 1 `sidebar-item`.
+- E2E-06: pass. 3 chats; renamed the second to "Renamed Chat"; searching `renamed` left 1 visible item (the renamed one). Deleted it; after reload 2 items remained, and `GET /api/conversations/<deleted>` returned 404.
+- E2E-07: pass. A and B got different ids. Clicking A's item went to `/c/<A>` and showed only "Say hello" and the S1 reply, with 0 code blocks.
+- The browser console had no errors or warnings across the walkthroughs.
+
+**Surprises**
+
+- E2E-07 caught a real bug. Without `generateMessageId`, `toUIMessageStreamResponse` gave replies ids that repeated across conversations. The upsert then overwrote chat A's reply with chat B's. Fixed by giving replies UUIDs, and message upserts now only update rows in their own conversation (`setWhere`).
