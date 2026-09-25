@@ -2,6 +2,7 @@ import { generateText, stepCountIs } from "ai";
 import { z } from "zod";
 import { getArtifact } from "@/lib/artifacts";
 import { env } from "@/lib/env";
+import { explainCallError, withDeadline } from "@/lib/llm/call-limits";
 import { getModel } from "@/lib/llm/provider";
 import { DIAGRAM_REWRITE_INSTRUCTIONS, buildDiagramRewriteMessage } from "@/lib/llm/rewrite-prompt";
 import { getSettings } from "@/lib/settings";
@@ -10,6 +11,9 @@ import { parseScene, summarizeScene } from "@/lib/tools/scene";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
+
+/** Shape edits are small: a minute and a short reply are plenty. */
+const DEADLINE_MS = 60_000;
 
 const body = z.object({
   selectedIds: z.array(z.string().min(1)).min(1).max(200),
@@ -33,6 +37,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const modelId = env().allowedModels.includes(model) ? model : (await getSettings()).defaultModel;
 
   const result = await generateText({
+    maxOutputTokens: 4000,
     model: getModel(modelId),
     instructions: DIAGRAM_REWRITE_INSTRUCTIONS,
     prompt: buildDiagramRewriteMessage({
@@ -43,16 +48,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     }),
     tools: diagramSelectionTools(artifact.id, selectedIds),
     toolChoice: { type: "tool", toolName: "update_diagram" },
-    stopWhen: stepCountIs(1),
-    abortSignal: req.signal,
+    // One retry: a tool error (e.g. out of the selection's scope) goes back to the model, as in chat.
+    stopWhen: [stepCountIs(2), ({ steps }) => (steps.at(-1)?.toolResults.length ?? 0) > 0],
+    abortSignal: withDeadline(req.signal, DEADLINE_MS),
+  }).catch((error: unknown) => {
+    const message = explainCallError(error, DEADLINE_MS);
+    if (message) return { error: message } as const;
+    throw error;
   });
+  if ("error" in result) return Response.json({ error: result.error }, { status: 422 });
 
+  const done = result.steps.flatMap((step) => step.toolResults).find((r) => r.toolName === "update_diagram");
+  if (done) return Response.json(done.output);
   const failure = result.content.find((p) => p.type === "tool-error");
   if (failure) {
-    const message = failure.error instanceof Error ? failure.error.message : String(failure.error);
+    const message =
+      explainCallError(failure.error, DEADLINE_MS) ??
+      (failure.error instanceof Error ? failure.error.message : String(failure.error));
     return Response.json({ error: message }, { status: 422 });
   }
-  const done = result.toolResults.find((r) => r.toolName === "update_diagram");
-  if (!done) return Response.json({ error: "The model did not change the diagram. Try again." }, { status: 422 });
-  return Response.json(done.output);
+  return Response.json({ error: "The model did not change the diagram. Try again." }, { status: 422 });
 }

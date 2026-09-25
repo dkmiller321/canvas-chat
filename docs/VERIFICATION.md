@@ -455,6 +455,10 @@ App bugs found and fixed (each has a unit test built from the real model's outpu
 10. **Large diagrams were half hidden.** They fit the canvas, but Excalidraw's own toolbars float over its top and bottom. `fitView` (`src/lib/diagram-view.ts`) fits drawings into the unobstructed area. It also fixed two races: the first view is now set only after Excalidraw has measured the canvas and finished loading.
 11. **Failed tool calls showed only "An error occurred."** Malformed tool calls now say so, and unexpected errors are logged on the server.
 
-Model-side observations (not fixed):
+12. **Button-triggered calls could hang for minutes.** Ask AI once ran 228 s while the model generated a runaway tool argument, then failed with a raw `AI_InvalidToolInputError`. Ask AI and quick actions now have a deadline (60 s for shapes, 110 s for document rewrites) and an output cap (shapes), and errors are explained in plain words (`src/lib/llm/call-limits.ts`). They also get one retry after a tool error, as chat already did.
+
+Also verified on the real model: code (a 36-line Python script in 12 s; "Add comments" in 6 s), a diagram edit via chat, and embedding a diagram in a document via chat (11 s). After the last fixes, the mock E2E suite passed 52/52 again, and `pnpm test` passed 144/144.
+
+Model-side observations (not fixed, because this model is a deliberate cheap choice):
 - Replies after tool calls are longer than the prompt asks. The prompt was tightened, and the replies improved.
-- "Ask AI" on a selected diagram shape took about 3 minutes, and the model added a new shape instead of restyling the selected one.
+- Ask AI on a selected shape: this model repeatedly uses the whole-diagram `preset` operation, which the selection guard correctly refuses, or changes the wrong element. With the fixes it now fails within 30–55 s with a clear message instead of hanging. Retest with a stronger model.
