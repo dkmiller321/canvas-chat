@@ -26,3 +26,24 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 - Next 16 dev blocks HMR requests from `127.0.0.1` unless it is listed in `allowedDevOrigins`. It is now listed, and `pnpm dev` binds to 127.0.0.1.
 - The only browser console error was a 404 for `/favicon.ico`, fixed by adding `src/app/icon.svg`.
 - A failing spec burns its full 60 s timeout, so a tests-first baseline of the whole suite takes about half an hour.
+
+## Stage 1 — Chat (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 47 passed / 0 failed (adds the mock through the real `streamText`/`generateText` pipeline, abort, tool step; pure tool and export modules written ahead for later stages) |
+| `pnpm test:e2e --grep "@stage[01]"` | 5 passed / 0 failed (10.2 s) |
+
+**Playwright MCP walkthrough** (fresh DB via `POST /api/test/reset`, `MOCK_LLM=1 pnpm dev`)
+
+- E2E-01: pass. `stop-button` was visible right after send. Sampling every 15 ms saw `""`, `Hello! I am`, `Hello! I am the mock model`, then the full sentence. The stop button was gone afterwards.
+- E2E-02: pass. `code-block` text was `ts` + `const answer = 42;`. After clicking `copy-code`, the clipboard read exactly `const answer = 42;`.
+- E2E-03: pass. Stopped after 800 ms: the text was 224 characters before and 224 characters one second later, and `chat-input` was enabled.
+- E2E-04: pass. Selected `mock/beta` in `model-picker`; the reply was `Mock reply from mock/beta`.
+
+**Surprises**
+
+- None in behaviour. AI SDK v7 matches the v5-style `useChat`/`DefaultChatTransport` API closely. The mock implements `LanguageModelV4` directly rather than using `MockLanguageModelV4`, so it can look at the prompt and pace chunks itself.
