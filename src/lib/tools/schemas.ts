@@ -7,8 +7,14 @@ export const createDocumentInput = z.object({
   markdown: z.string().describe("Full document body in Markdown"),
 });
 
+export const createCodeInput = z.object({
+  title: z.string().min(1).describe("Short title, e.g. the program's name"),
+  language: z.string().min(1).describe("Language id, e.g. python, typescript, javascript, go, rust, sql"),
+  code: z.string().describe("The full source code"),
+});
+
 export const editDocumentInput = z.object({
-  artifact_id: z.string().describe("Id of the document to edit"),
+  artifact_id: z.string().describe("Id of the document or code artifact to edit"),
   edits: z
     .array(
       z.object({
@@ -73,6 +79,10 @@ export const diagramOperation = z.discriminatedUnion("op", [
   z.object({ op: z.literal("remove"), id: z.string() }),
   z.object({ op: z.literal("relabel"), id: z.string(), label: z.string() }),
   z.object({
+    op: z.literal("preset"),
+    preset: z.enum(["colorful", "monochrome", "clean", "sketchy"]).describe("Restyle the whole diagram"),
+  }),
+  z.object({
     op: z.literal("restyle"),
     id: z.string(),
     strokeColor: color.optional(),
@@ -90,6 +100,7 @@ export const updateDiagramInput = z.object({
 });
 
 export type CreateDocumentInput = z.infer<typeof createDocumentInput>;
+export type CreateCodeInput = z.infer<typeof createCodeInput>;
 export type EditDocumentInput = z.infer<typeof editDocumentInput>;
 export type RewriteSelectionInput = z.infer<typeof rewriteSelectionInput>;
 export type CreateDiagramInput = z.infer<typeof createDiagramInput>;
@@ -97,6 +108,7 @@ export type UpdateDiagramInput = z.infer<typeof updateDiagramInput>;
 
 export const TOOL_NAMES = {
   createDocument: "create_document",
+  createCode: "create_code",
   editDocument: "edit_document",
   rewriteSelection: "rewrite_selection",
   createDiagram: "create_diagram",

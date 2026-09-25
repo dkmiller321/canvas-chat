@@ -4,7 +4,13 @@ export const HELLO = "Hello! I am the mock model and streaming works.";
 export const V1_MARKDOWN = "# Coffee Guide\n\nCoffee is a brewed drink.\n\n## Brewing\n\nUse fresh beans.";
 
 export type Version = { versionNo: number; author: "user" | "ai"; content: string };
-export type Artifact = { id: string; kind: "document" | "diagram"; title: string; currentVersion: Version | null };
+export type Artifact = {
+  id: string;
+  kind: "document" | "diagram" | "code";
+  title: string;
+  language?: string | null;
+  currentVersion: Version | null;
+};
 
 export type SceneElement = {
   id: string;
@@ -179,4 +185,42 @@ export async function downloadBytes(page: Page, testId: string) {
   const chunks: Buffer[] = [];
   for await (const chunk of stream) chunks.push(chunk as Buffer);
   return { name: download.suggestedFilename(), bytes: Buffer.concat(chunks) };
+}
+
+export type FullElement = SceneElement & {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  strokeColor?: string;
+  backgroundColor?: string;
+  roughness?: number;
+  fillStyle?: string;
+  startBinding?: { elementId: string } | null;
+  endBinding?: { elementId: string } | null;
+};
+
+export function fullElements(content: string): FullElement[] {
+  return sceneElements(content) as FullElement[];
+}
+
+/** Select shapes in the open diagram through the MOCK_LLM test hook (docs/E2E_TESTS.md §4.1). */
+export async function selectShapes(page: Page, ids: string[]) {
+  await page.waitForFunction(() => "__excalidrawAPI" in window);
+  await page.evaluate((ids) => {
+    const api = (window as unknown as { __excalidrawAPI: { updateScene: (s: unknown) => void } }).__excalidrawAPI;
+    api.updateScene({ appState: { selectedElementIds: Object.fromEntries(ids.map((id) => [id, true])) } });
+  }, ids);
+}
+
+/** Wait until the artifact has a version newer than `after` and return it. */
+export async function waitForNewVersion(request: APIRequestContext, id: string, after: number, timeout = 10_000) {
+  return waitForVersion(request, id, after + 1, timeout);
+}
+
+export async function createCode(page: Page): Promise<string> {
+  await page.goto("/");
+  await sendAndWait(page, "Write a python script");
+  await expect(page.getByTestId("code-editor")).toContainText("def fib(n):");
+  return artifactIdOfCard(page, "Fibonacci");
 }

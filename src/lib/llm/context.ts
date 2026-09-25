@@ -2,10 +2,11 @@ import type { ElementSummary } from "@/lib/tools/scene";
 
 /** Artifact state included in the model's instructions on every turn (PRD A5). */
 
-export type ArtifactListing = { id: string; kind: "document" | "diagram"; title: string; version: number };
+export type ArtifactListing = { id: string; kind: "document" | "diagram" | "code"; title: string; version: number };
 
 export type OpenArtifact =
   | (ArtifactListing & { kind: "document"; content: string })
+  | (ArtifactListing & { kind: "code"; language: string; content: string })
   | (ArtifactListing & { kind: "diagram"; elements: ElementSummary[] });
 
 export type ArtifactContext = { artifacts: ArtifactListing[]; open: OpenArtifact | null };
@@ -13,9 +14,11 @@ export type ArtifactContext = { artifacts: ArtifactListing[]; open: OpenArtifact
 const BASE_INSTRUCTIONS = `You are Canvas Chat, an assistant that writes documents and diagrams beside the conversation.
 
 - When the user asks for a document (plan, spec, essay, notes…), call create_document instead of pasting it into the chat.
-- To change an existing document, call edit_document with small exact find/replace edits copied verbatim from the current content. Never rewrite the whole document to change one part.
+- When the user asks for a program, script or code file, call create_code with the language and the full code.
+- To change an existing document or code artifact, call edit_document with small exact find/replace edits copied verbatim from the current content. Never rewrite the whole thing to change one part.
+- To embed a diagram from this conversation in a document, write ![Diagram title](diagram://<diagram id>) on its own line.
 - When the user asks for a diagram, call create_diagram with Mermaid source. Use element skeletons only for freeform sketches.
-- To change an existing diagram, call update_diagram with operations that reference element ids from the element list below. Do not redraw it.
+- To change an existing diagram, call update_diagram with operations that reference element ids from the element list below. Do not redraw it. To restyle the whole diagram, use the preset operation (colorful, monochrome, clean, sketchy).
 - The content below is the current state, including the user's manual edits. Always work from it.
 - After a tool call, reply with one short sentence.
 

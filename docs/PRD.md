@@ -254,3 +254,31 @@ Build in eight stages, one per working session, and don't start a stage until th
 - [Open Canvas](https://github.com/langchain-ai/open-canvas)
 - [Excalidraw](https://github.com/excalidraw/excalidraw)
 - [Mermaid to Excalidraw](https://github.com/excalidraw/mermaid-to-excalidraw)
+
+## Addendum A — v1.1 parity stages (Sep 24, 2026)
+
+Requested by the owner after v1 delivery: bring document and diagram editing up to Open Canvas and mainstream editors. These stages extend the milestones table; the non-goals are unchanged. New scenarios are E2E-28 onward in `docs/E2E_TESTS.md`.
+
+| Stage | Scope | Done when |
+| --- | --- | --- |
+| 8. Artifact essentials | New blank document/diagram, rename, delete, copy Markdown, **branch from version** (closes the A3 gap), raw-Markdown view, word count, outline | A branched copy of v1 exists beside the original, and blank artifacts can be created without the AI |
+| 9. Formatting | Formatting toolbar, "/" slash menu, task lists, table row/column controls | Bold, lists, task items and tables round-trip to Markdown |
+| 10. Code artifacts (D8) | `create_code` tool, CodeMirror editor, language picker, code quick actions, code export | The AI writes a script into a code canvas and edits it in place |
+| 11. Diagram embeds (E4) | Insert a live diagram into a document; PDF, DOCX and Markdown exports include it | A document shows the current drawing and its exports contain the image |
+| 12. Diagram selection edits (G6) | Select shapes, then Ask AI to change only those | Only the selected shapes change |
+| 13. Diagram styles and layout | Style presets (Colourful, Monochrome, Clean, Sketchy), AI restyle, Tidy-up auto-layout | One click restyles the whole drawing; tidy-up removes overlaps and keeps connections |
+| 14. More diagram types | Editable sequence, class, state, ER and mind-map diagrams; Mermaid source view and edit | Each type converts to editable shapes, not an image |
+| 15. Diagram files and library | Import `.excalidraw`, a persisted shape library, transparent and dark exports | An imported file becomes a new version; library items survive a reload |
+
+New requirements:
+
+| ID | Requirement | Priority |
+| --- | --- | --- |
+| D10 | Formatting toolbar and "/" slash menu for every block the Markdown round-trip supports | P1 |
+| D11 | Task lists and table editing controls | P1 |
+| D12 | Blank artifacts, rename, delete, copy, raw-Markdown view, word count, outline | P1 |
+| G7 | Style presets, AI restyle and tidy-up layout | P1 |
+| G8 | Sequence, class, state, ER and mind-map diagrams stay editable | P1 |
+| G9 | Import `.excalidraw`, persisted library, transparent/dark export | P2 |
+
+D8 (code artifacts), E4 (embed a diagram) and G6 (selection-scoped diagram requests) move from P2 into this addendum. D7 (custom quick actions) stays P2.

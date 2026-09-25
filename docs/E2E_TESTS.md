@@ -191,3 +191,117 @@ After the specs pass for a stage, walk the same scenario IDs through the `playwr
 4. Record `E2E-xx: pass | fail — note` in `docs/VERIFICATION.md`.
 
 A scenario that passes in `@playwright/test` but fails in the MCP walkthrough (or the reverse) is a bug in either the spec or the app. Investigate and fix it. Don't mark it passed.
+
+## 4. Addendum A — v1.1 stages 8–15
+
+Same rules as above: every scenario becomes a spec before its feature is built, and a stage is done when its scenarios and all earlier ones pass.
+
+### 4.1 Additional selectors
+
+| testid | Element |
+|---|---|
+| `new-artifact` / `new-document` / `new-diagram` / `new-code` | "New" menu in the chat header and its items |
+| `artifact-rename` / `artifact-title-input` | Rename action and its inline title input |
+| `artifact-delete` / `artifact-delete-confirm` | Delete action and its confirmation |
+| `version-branch` | Branch a copy from the viewed version |
+| `copy-markdown` | Copy the current document (or code) to the clipboard |
+| `view-markdown` / `markdown-source` | Toggle the raw-Markdown view and its textarea |
+| `doc-stats` / `doc-outline` | Word count and the heading outline |
+| `format-toolbar` | Formatting toolbar above the document |
+| `format-bold` / `format-italic` / `format-strike` / `format-code` / `format-link` | Inline formatting |
+| `format-h1` / `format-h2` / `format-h3` / `format-paragraph` | Block type |
+| `format-bullet-list` / `format-ordered-list` / `format-task-list` / `format-quote` / `format-code-block` | Block formatting |
+| `format-undo` / `format-redo` | History |
+| `slash-menu` | "/" command menu (items are `slash-item` with visible labels) |
+| `table-toolbar` / `table-add-row` / `table-delete-row` / `table-add-column` / `table-delete-column` / `table-delete` | Table controls, shown while the cursor is in a table |
+| `code-editor` / `code-language` | CodeMirror root and the language select |
+| `quick-action-<id>` for code | Code quick actions: `comments`, `logs`, `fix-bugs`, `optimize`, `port-python`, `port-typescript` |
+| `export-code` | Download the code file |
+| `insert-diagram` / `insert-diagram-option` | Insert-diagram menu and its entries (one per diagram) |
+| `diagram-embed` | Embedded diagram inside `doc-editor` |
+| `diagram-ask-ai-button` / `diagram-ask-ai-input` / `diagram-ask-ai-submit` | Ask AI about the selected shapes |
+| `diagram-style-menu` / `style-colorful` / `style-monochrome` / `style-clean` / `style-sketchy` | Style presets |
+| `diagram-tidy` | Tidy-up auto-layout |
+| `diagram-source` / `mermaid-source` / `mermaid-apply` | Mermaid source panel |
+| `diagram-import` | File input for `.excalidraw` import |
+| `export-png-transparent` / `export-svg-dark` | Extra diagram exports |
+
+Test hook: when `MOCK_LLM=1` the diagram editor exposes its Excalidraw API as `window.__excalidrawAPI`, so specs can select shapes and edit the library without pixel coordinates. The MCP walkthrough uses real clicks instead.
+
+New API: `GET /api/artifacts/:id` also returns `language` (code only); `GET/PUT /api/library` holds the Excalidraw library items.
+
+### 4.2 Additional mock scripts
+
+| Script | Trigger (contains) | Mock output |
+|---|---|---|
+| S14 code | `write a python script` | Tool `create_code` with `{ title: "Fibonacci", language: "python", code: "def fib(n):\n    a, b = 0, 1\n    for _ in range(n):\n        a, b = b, a + b\n    return a\n\nprint(fib(10))\n" }`, then text `Here is the script.` |
+| S15 rename fn | `rename the function` | Tool `edit_document` on the open code artifact: `def fib(n):` → `def fibonacci(n):` and `print(fib(10))` → `print(fibonacci(10))` |
+| S16 comments | instruction `quick:comments` | Replacement: the whole code with `# Compute Fibonacci numbers.\n` prepended |
+| S17 make red | diagram instruction `make it red` | Tool `update_diagram` restyling every selected id to `strokeColor: "#e03131"`, `backgroundColor: "#ffc9c9"` |
+| S18 rename shape | diagram instruction `rename to auth` | Tool `update_diagram` relabelling the first selected id to `Auth` |
+| S19 monochrome | `make it monochrome` | Tool `update_diagram` with `[{ op: "preset", preset: "monochrome" }]` on the open diagram |
+| S20 sequence | `draw a sequence diagram` | `create_diagram` titled `Greeting`, Mermaid `sequenceDiagram\n  Alice->>Bob: Hello\n  Bob-->>Alice: Hi` |
+| S21 class | `draw a class diagram` | `create_diagram` titled `Animals`, Mermaid `classDiagram\n  class Animal\n  class Dog\n  Animal <\|-- Dog` |
+| S22 state | `draw a state diagram` | `create_diagram` titled `Runner`, Mermaid `stateDiagram-v2\n  [*] --> Idle\n  Idle --> Running: start\n  Running --> Idle: stop` |
+| S23 ER | `draw an er diagram` | `create_diagram` titled `Orders`, Mermaid `erDiagram\n  CUSTOMER \|\|--o{ ORDER : places` |
+| S24 mind map | `draw a mind map` | `create_diagram` titled `Coffee Map`, Mermaid `mindmap\n  root((Coffee))\n    Beans\n    Brewing\n    Serving` |
+
+### 4.3 Scenarios
+
+**Stage 8 — Artifact essentials**
+
+**E2E-28 @stage8 blank document (D12).** On `/`, open `new-artifact` and click `new-document`. `canvas-panel` opens with `doc-title` `Untitled document`. Type `Hello world` into `doc-editor`. The API shows a document whose current version contains `Hello world`, authored by `user`. One `sidebar-item` exists.
+
+**E2E-29 @stage8 rename and delete (D12).** Create the S5 document. Click `artifact-rename`, fill `artifact-title-input` with `Brew Notes`, press Enter: `doc-title` shows `Brew Notes`, `artifact-switcher` lists it, and the API title is `Brew Notes`. Click `artifact-delete` then `artifact-delete-confirm`: the switcher no longer lists it and `GET /api/artifacts/:id` returns 404.
+
+**E2E-30 @stage8 branch from a version (A3).** Create the S5 document and send `Make it more formal`. Select version 1 in `version-switcher` and click `version-branch`. `artifact-switcher` now lists two artifacts; the new one, titled `Coffee Guide (v1 copy)`, is open. Its version 1 content equals the original's version 1. The original is still at version 2.
+
+**E2E-31 @stage8 copy, source view, stats and outline (D12).** Create the S5 document. `copy-markdown` puts the API's current content on the clipboard. `doc-stats` contains `11 words`. `doc-outline` lists `Coffee Guide` and `Brewing`. Click `view-markdown`: `markdown-source` shows the current Markdown. Append a paragraph `Extra line.`, click `view-markdown` again: `doc-editor` contains `Extra line.` and the API has a new version by `user` containing it.
+
+**Stage 9 — Formatting**
+
+**E2E-32 @stage9 formatting toolbar (D10).** Create the S5 document. `format-toolbar` is visible. Triple-click `Use fresh beans.` and click `format-bold`: a new version contains `**Use fresh beans.**`. Click inside `Coffee is a brewed drink.` and click `format-bullet-list`: a newer version contains `- Coffee is a brewed drink.`.
+
+**E2E-33 @stage9 slash menu and task list (D10, D11).** Create the S5 document. Click the end of `Use fresh beans.`, press End then Enter, type `/`: `slash-menu` is visible. Type `task`, press Enter, type `Buy beans`: a version contains `- [ ] Buy beans`. Check the checkbox in `doc-editor`: a newer version contains `- [x] Buy beans`.
+
+**E2E-34 @stage9 table controls (D11).** Create the S5 document. On a new line after `Use fresh beans.`, insert a table from the slash menu (`table`). The saved Markdown has a table (lines starting with `|`). With the cursor in the table, `table-toolbar` is visible. Click `table-add-row`: the number of `|` lines grows by one. Click `table-add-column`: the header line has one more cell.
+
+**Stage 10 — Code artifacts**
+
+**E2E-35 @stage10 create code (D8).** Send `Write a python script`. `code-editor` contains `def fib(n):`, `code-language` has value `python`, an `artifact-card` appears, and the API shows kind `code`, language `python`, version 1 by `ai`. Type ` # done` at the end of the last line: within 3 s the API shows version 2 by `user` containing `# done`.
+
+**E2E-36 @stage10 AI edit and quick action on code (D8).** After E2E-35's setup, send `Rename the function`: `code-editor` contains `def fibonacci(n):` and the API shows version 2 by `ai`. Open `quick-actions` and click `quick-action-comments`: `code-editor` contains `# Compute Fibonacci numbers.` and version 3 exists.
+
+**E2E-37 @stage10 language and export (D8).** After E2E-35's setup, select `javascript` in `code-language`: the API language is `javascript`. `export-code` downloads `fibonacci.js` whose text contains `def fib(n):`.
+
+**Stage 11 — Diagram embeds**
+
+**E2E-38 @stage11 embed a live diagram (E4).** In one conversation create the S5 document and the S11 diagram. Switch to `Coffee Guide`, click the end of `Use fresh beans.`, open `insert-diagram` and click the `insert-diagram-option` `Login Flow`. `doc-editor` contains a `diagram-embed` with an `<svg>`, and the saved Markdown contains `diagram://<diagram id>`. Switch to `Login Flow`, send `Add a cache`, switch back: the embed's SVG contains the text `Cache`. `export-md` contains `data:image/svg+xml;base64`, `export-docx` is a zip containing a `word/media/` entry, and `export-pdf` starts with `%PDF`.
+
+**Stage 12 — Diagram selection edits**
+
+**E2E-39 @stage12 restyle the selection (G6).** Create the S11 diagram. Select the `Login` shape (via `window.__excalidrawAPI`). `diagram-ask-ai-button` appears; click it, type `make it red` in `diagram-ask-ai-input`, click `diagram-ask-ai-submit`. The API shows a new version by `ai` where the Login shape has `strokeColor #e03131` and `backgroundColor #ffc9c9`, while User and Dashboard keep their previous colours.
+
+**E2E-40 @stage12 relabel the selection (G6).** Create the S11 diagram. Select `Login`, ask `rename to auth`. The new version's labels include `Auth` and not `Login`, and the shape's id is unchanged.
+
+**Stage 13 — Styles and layout**
+
+**E2E-41 @stage13 style presets (G7).** Create the S11 diagram. Open `diagram-style-menu`, click `style-monochrome`: a new version by `user` where every rectangle has `strokeColor #1e1e1e` and `backgroundColor transparent`. Click `style-clean`: a newer version where every shape has `roughness 0` and `fillStyle solid`.
+
+**E2E-42 @stage13 AI restyle (G7).** Create the S11 diagram and send `Make it monochrome`. The API shows version 2 by `ai` in which every rectangle has `strokeColor #1e1e1e`.
+
+**E2E-43 @stage13 tidy up (G7).** Create the S11 diagram, send `Add a cache`, then click `diagram-tidy`. The new version by `user` has no two shapes overlapping, `User.x < Login.x < Dashboard.x`, `Cache.x > Login.x`, and every arrow keeps its start and end bindings.
+
+**Stage 14 — More diagram types**
+
+**E2E-44 @stage14 editable diagram types (G8).** For each of S20–S24, in a fresh chat: version 1 has no `image` elements, and its labels include, respectively, `Alice` and `Bob`; `Animal` and `Dog`; `Idle` and `Running`; `CUSTOMER` and `ORDER`; `Coffee`, `Beans`, `Brewing` and `Serving`.
+
+**E2E-45 @stage14 Mermaid source (G8).** Create the S11 diagram. Click `diagram-source`: `mermaid-source` contains the S11 Mermaid. Replace `C[Dashboard]` with `C[Home]` and click `mermaid-apply`. A new version by `user` has labels including `Home` and not `Dashboard`.
+
+**Stage 15 — Diagram files and library**
+
+**E2E-46 @stage15 import .excalidraw (G9).** Create the S11 diagram. Set `diagram-import` to `e2e/fixtures/imported.excalidraw` (one labelled rectangle, `Imported`). A new version by `user` has labels exactly `["Imported"]`.
+
+**E2E-47 @stage15 library persists (G9).** Create the S11 diagram. Add one library item through `window.__excalidrawAPI.updateLibrary`. Within 3 s `GET /api/library` returns one item. After a reload it still returns one item.
+
+**E2E-48 @stage15 transparent and dark exports (G9).** Create the S11 diagram. `export-png-transparent` downloads a PNG whose top-left pixel has alpha 0. `export-svg-dark` downloads an SVG that contains `invert`.

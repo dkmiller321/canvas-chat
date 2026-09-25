@@ -9,6 +9,7 @@ import type {
 } from "@ai-sdk/provider";
 import { parseArtifactContext } from "./context";
 import { planResponse, type MockMode, type MockStep } from "./mock-scripts";
+import { DIAGRAM_REWRITE_INSTRUCTIONS } from "./rewrite-prompt";
 import { TITLE_INSTRUCTIONS } from "./title";
 import { TOOL_NAMES } from "@/lib/tools/schemas";
 
@@ -40,9 +41,11 @@ function plan(options: LanguageModelV4CallOptions, modelId: string): MockStep {
   const toolNames = (options.tools ?? []).map((t) => t.name);
   const mode: MockMode = system.startsWith(TITLE_INSTRUCTIONS)
     ? "title"
-    : toolNames.includes(TOOL_NAMES.rewriteSelection)
-      ? "rewrite"
-      : "chat";
+    : system.startsWith(DIAGRAM_REWRITE_INSTRUCTIONS)
+      ? "diagram-rewrite"
+      : toolNames.includes(TOOL_NAMES.rewriteSelection)
+        ? "rewrite"
+        : "chat";
   return planResponse({
     mode,
     lastUser: lastUserText(options.prompt),
