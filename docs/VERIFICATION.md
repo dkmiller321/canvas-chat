@@ -117,3 +117,26 @@ Claude Code appends one section per stage: commands run with pass/fail counts, e
 - **Spec fix (approved by the user):** E2E-13 had an assertion I added beyond E2E_TESTS.md, "v3 contains `Use fresh beans. My note.`". It contradicts script S7, which inserts the conclusion between the two sentences. It now asserts v3 contains `My note.` and `## Conclusion\n\nEnjoy responsibly.`. Every documented assertion is unchanged.
 - The AI SDK masks tool-error text in the UI stream ("An error occurred."). The chat route's `onError` now passes `ToolError` messages through and keeps other errors generic.
 - My first E2E-16 walkthrough check passed falsely, because Playwright's `getByText` is case-insensitive. I re-checked with a case-sensitive `textContent.includes`.
+
+## Stage 5 — Diagram canvas (2026-09-24)
+
+**Commands**
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` | pass |
+| `pnpm test` | 47 passed / 0 failed |
+| `pnpm test:e2e --grep "@stage5"` | 3 passed / 0 failed on the first run |
+| `pnpm test:e2e --grep "@stage[0-5]"` | 21 passed / 0 failed |
+
+**Playwright MCP walkthrough**
+
+- E2E-18: pass. `diagram-editor` held 2 `<canvas>` elements. The API showed a `diagram` at v1 / `ai`, text labels `User, Login, Dashboard`, and 2 arrows. A screenshot confirmed the labels sit inside their boxes and the arrows are bound.
+- Extra check: opening the diagram and waiting 2.5 s does **not** autosave a spurious v2 (the version hash baseline is correct).
+- E2E-19: pass. Pressing `r` and dragging created v2 / `user` about 0.9 s later, with rectangles going from 3 to 4.
+- E2E-20: pass. The switcher tabs were `Coffee Guide` and `Login Flow`. Switching showed `doc-editor` (the text intact, diagram hidden) and then `diagram-editor` (doc hidden).
+- No browser console errors.
+
+**Surprises**
+
+- None. Excalidraw 0.18's `hashElementsVersion` plus `restoreElements` gave a stable baseline, so load and AI updates don't trigger autosaves.
