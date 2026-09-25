@@ -131,3 +131,6 @@ Tags: **[env]** machine/setup · **[contract]** E2E_TESTS.md · **[prd]** PRD ga
 
 33. **[process] Scope grew after delivery** ("parity with Open Canvas and leading editors"). The PRD's parity table was functional and incomplete (no toolbar, slash menu, branch, code canvas, diagram presets…).
     - *Kit change:* the PRD template should include a competitor feature matrix (rows = features, columns = reference products, plus an in/out-of-scope column), filled in during the brainstorm phase.
+
+34. **[contract] "Contains" assertions miss misplaced content.** E2E-33/34 checked that the Markdown *contained* the new block, and passed while the block was inserted above the title. Only the MCP screenshot showed it.
+    - *Kit change:* for editor scenarios, assert position (e.g. "after X", "title unchanged") or compare the whole expected document, not just `toContain`.

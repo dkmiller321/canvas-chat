@@ -32,6 +32,10 @@ test("E2E-33 @stage9 slash menu and task list", async ({ page, request }) => {
   await page.keyboard.press("Enter");
   await page.keyboard.type("Buy beans");
   await expect.poll(() => content(request, id), { timeout: 5_000 }).toContain("- [ ] Buy beans");
+  // The task goes on the new line after "Use fresh beans.", and the title is untouched.
+  const saved = await content(request, id);
+  expect(saved.startsWith("# Coffee Guide\n")).toBe(true);
+  expect(saved.indexOf("- [ ] Buy beans")).toBeGreaterThan(saved.indexOf("Use fresh beans."));
 
   await editor.getByRole("checkbox").first().check();
   await expect.poll(() => content(request, id), { timeout: 5_000 }).toContain("- [x] Buy beans");
@@ -50,6 +54,10 @@ test("E2E-34 @stage9 table controls", async ({ page, request }) => {
   const tableLines = async () => (await content(request, id)).split("\n").filter((l) => l.trim().startsWith("|"));
   await expect.poll(async () => (await tableLines()).length, { timeout: 5_000 }).toBeGreaterThan(1);
   const before = await tableLines();
+  // The table goes on the new line after "Use fresh beans.", and the title is untouched.
+  const saved = await content(request, id);
+  expect(saved.startsWith("# Coffee Guide\n")).toBe(true);
+  expect(saved.indexOf("|")).toBeGreaterThan(saved.indexOf("Use fresh beans."));
 
   await editor.locator("td, th").first().click();
   await expect(page.getByTestId("table-toolbar")).toBeVisible();

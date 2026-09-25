@@ -182,6 +182,39 @@
   :is(.prose-chat, .doc-prose) hr {
     @apply my-10 border-border;
   }
+  /* Task lists (D11): checkbox beside each item, no bullet. */
+  .doc-prose ul[data-type="taskList"] {
+    @apply list-none pl-1;
+  }
+  .doc-prose ul[data-type="taskList"] li {
+    @apply flex items-start gap-2.5;
+  }
+  .doc-prose ul[data-type="taskList"] li > label {
+    @apply mt-[0.35em] shrink-0 select-none;
+  }
+  .doc-prose ul[data-type="taskList"] li > label input {
+    @apply size-4 cursor-pointer accent-[var(--primary)];
+  }
+  .doc-prose ul[data-type="taskList"] li > div {
+    @apply min-w-0 flex-1;
+  }
+  .doc-prose ul[data-type="taskList"] li[data-checked="true"] > div {
+    @apply text-muted-foreground line-through decoration-1;
+  }
+  /* Editable tables: visible cell boundaries and the selected cell. */
+  .doc-prose .tableWrapper {
+    @apply my-6 overflow-x-auto;
+  }
+  .doc-prose table :is(td, th) {
+    @apply relative min-w-[4rem] border;
+  }
+  .doc-prose .selectedCell::after {
+    @apply pointer-events-none absolute inset-0 bg-primary/10 content-[""];
+  }
+  .doc-prose .column-resize-handle {
+    @apply pointer-events-none absolute top-0 -right-0.5 bottom-0 w-1 bg-primary/40;
+  }
+
   /* Selection kept visible while the Ask AI box has focus. */
   .doc-prose .ask-ai-selection {
     @apply rounded-sm bg-primary/20;

@@ -1,6 +1,7 @@
 "use client";
 
 import { Markdown } from "@tiptap/markdown";
+import { TaskItem, TaskList } from "@tiptap/extension-list";
 import { TableKit } from "@tiptap/extension-table";
 import { EditorContent, useEditor, type Editor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
@@ -8,7 +9,10 @@ import { Sparkles } from "lucide-react";
 import { useEffect, useImperativeHandle, useRef, useState, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { FormatToolbar } from "./format-toolbar";
 import { KeepSelection, showKeptSelection } from "./keep-selection";
+import { SlashCommand, type SlashMenuState } from "./slash-command";
+import { SyncSelectionOnKey } from "./sync-selection";
 
 export type DocumentEditorHandle = {
   /** Markdown of the current selection, or null when nothing is selected. */
@@ -72,9 +76,19 @@ export function DocumentEditor({
   const onWordCountRef = useRef(onWordCount);
   onWordCountRef.current = onWordCount;
   useEffect(() => onWordCountRef.current(info.words), [info.words]);
+  const [slash, setSlash] = useState<SlashMenuState>(null);
 
   const editor = useEditor({
-    extensions: [StarterKit, TableKit, Markdown, KeepSelection],
+    extensions: [
+      StarterKit,
+      TableKit,
+      TaskList,
+      TaskItem.configure({ nested: true }),
+      Markdown,
+      KeepSelection,
+      SyncSelectionOnKey,
+      SlashCommand.configure({ onState: setSlash }),
+    ],
     content,
     contentType: "markdown",
     editable,
@@ -142,57 +156,98 @@ export function DocumentEditor({
     setAnchor(null);
   }
 
+  const wrapBox = wrapRef.current?.getBoundingClientRect();
+
   return (
     <div className="flex h-full">
-      <div ref={wrapRef} className="relative h-full min-w-0 flex-1 overflow-y-auto">
-        <EditorContent editor={editor} className="h-full" />
-        {anchor && asking && (
-          <form
-            className="absolute z-10 flex w-[360px] items-center gap-1 rounded-xl border bg-popover p-1.5 shadow-xl ring-1 ring-black/5"
-            style={{ top: anchor.below, left: anchor.left }}
-            onSubmit={(e) => {
-              e.preventDefault();
-              submitAsk();
-            }}
-          >
-            <Sparkles className="ml-1.5 size-4 shrink-0 text-ai" aria-hidden />
-            <input
-              data-testid="ask-ai-input"
-              aria-label="Ask AI about the selection"
-              autoFocus
-              value={instruction}
-              onChange={(e) => setInstruction(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Escape") closeAsk();
+      <div className="flex min-w-0 flex-1 flex-col">
+        {/* Remount once the editor exists: useEditorState subscribes on mount. */}
+        <FormatToolbar key={editor ? "ready" : "loading"} editor={editor} />
+        <div ref={wrapRef} className="relative min-h-0 flex-1 overflow-y-auto">
+          <EditorContent editor={editor} className="h-full" />
+          {slash && slash.rect && wrapBox && (
+            <div
+              data-testid="slash-menu"
+              role="listbox"
+              aria-label="Insert block"
+              className="absolute z-20 w-64 overflow-hidden rounded-xl border bg-popover p-1 shadow-xl"
+              style={{
+                top: slash.rect.bottom - wrapBox.top + (wrapRef.current?.scrollTop ?? 0) + 6,
+                left: Math.min(slash.rect.left - wrapBox.left, wrapBox.width - 272),
               }}
-              placeholder="Rewrite, shorten, expand…"
-              className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-sm outline-none"
-            />
-            <Button data-testid="ask-ai-submit" type="submit" size="sm" disabled={!instruction.trim()}>
-              Apply
+            >
+              {slash.items.length === 0 ? (
+                <p className="px-2 py-1.5 text-sm text-muted-foreground">No matching blocks</p>
+              ) : (
+                slash.items.map((item, i) => (
+                  <button
+                    key={item.id}
+                    type="button"
+                    role="option"
+                    aria-selected={i === slash.selected}
+                    data-testid="slash-item"
+                    onMouseDown={(e) => e.preventDefault()}
+                    onClick={() => slash.choose(item)}
+                    className={cn(
+                      "flex w-full flex-col rounded-md px-2 py-1.5 text-left",
+                      i === slash.selected ? "bg-accent" : "hover:bg-accent/60",
+                    )}
+                  >
+                    <span className="text-sm font-medium">{item.label}</span>
+                    <span className="text-xs text-muted-foreground">{item.hint}</span>
+                  </button>
+                ))
+              )}
+            </div>
+          )}
+          {anchor && asking && (
+            <form
+              className="absolute z-10 flex w-[360px] items-center gap-1 rounded-xl border bg-popover p-1.5 shadow-xl ring-1 ring-black/5"
+              style={{ top: anchor.below, left: anchor.left }}
+              onSubmit={(e) => {
+                e.preventDefault();
+                submitAsk();
+              }}
+            >
+              <Sparkles className="ml-1.5 size-4 shrink-0 text-ai" aria-hidden />
+              <input
+                data-testid="ask-ai-input"
+                aria-label="Ask AI about the selection"
+                autoFocus
+                value={instruction}
+                onChange={(e) => setInstruction(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Escape") closeAsk();
+                }}
+                placeholder="Rewrite, shorten, expand…"
+                className="h-8 min-w-0 flex-1 bg-transparent px-1.5 text-sm outline-none"
+              />
+              <Button data-testid="ask-ai-submit" type="submit" size="sm" disabled={!instruction.trim()}>
+                Apply
+              </Button>
+            </form>
+          )}
+          {anchor && !asking && (
+            <Button
+              data-testid="ask-ai-button"
+              size="sm"
+              variant="outline"
+              className="absolute z-10 rounded-full bg-popover shadow-md"
+              style={{ top: anchor.above, left: anchor.left }}
+              // Keep the editor selection when the button takes the click.
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => {
+                const md = editor ? selectionMarkdown(editor) : null;
+                if (!editor || !md) return;
+                const { from, to } = editor.state.selection;
+                showKeptSelection(editor, { from, to });
+                setAsking({ markdown: md });
+              }}
+            >
+              <Sparkles className="text-ai" /> Ask AI
             </Button>
-          </form>
-        )}
-        {anchor && !asking && (
-          <Button
-            data-testid="ask-ai-button"
-            size="sm"
-            variant="outline"
-            className="absolute z-10 rounded-full bg-popover shadow-md"
-            style={{ top: anchor.above, left: anchor.left }}
-            // Keep the editor selection when the button takes the click.
-            onMouseDown={(e) => e.preventDefault()}
-            onClick={() => {
-              const md = editor ? selectionMarkdown(editor) : null;
-              if (!editor || !md) return;
-              const { from, to } = editor.state.selection;
-              showKeptSelection(editor, { from, to });
-              setAsking({ markdown: md });
-            }}
-          >
-            <Sparkles className="text-ai" /> Ask AI
-          </Button>
-        )}
+          )}
+        </div>
       </div>
       <aside
         aria-label="Document outline"

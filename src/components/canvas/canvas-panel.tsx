@@ -258,7 +258,10 @@ export function CanvasPanel({ canvas, chatBusy, model }: Props) {
             </div>
           )}
           {status && (
-            <p className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
+            <p
+              className="mt-0.5 flex items-center gap-1.5 overflow-hidden text-xs whitespace-nowrap text-muted-foreground"
+              role="status"
+            >
               {status.icon}
               {status.text}
               {isDocument && doc && (

@@ -254,3 +254,21 @@ Surprises and fixes:
 - **Spec adjustment, flagged for review:** the Windows clipboard turns `\n` into `\r\n`, so E2E-31 now compares the clipboard with line endings normalised. The scenario text is unchanged, and it would pass as written on Linux/CI.
 - The outline rail was hidden at the default canvas width (the spec passed because it checks text, not visibility). The word count moved into the always-visible status line, and an Outline toggle opens the rail at any width.
 - Added `.gitattributes`/`.editorconfig` (LF) and Prettier (`pnpm format`) after more CRLF and escaping problems in scripted edits. The codebase is now formatted in one style.
+
+## Stage 9 — Formatting (2026-09-25)
+
+| Command | Result |
+|---|---|
+| `pnpm typecheck` / `pnpm test` | pass / 58 passed |
+| `pnpm test:e2e --grep "@stage9 "` | 1st run 2/3 (toolbar missing until first interaction); after fixes 3/3 |
+| `pnpm test:e2e --grep "@stage[0-9] "` | 35 passed / 0 failed |
+
+MCP walkthrough (real mouse and keyboard; screenshots `v11-07…10`):
+- E2E-32: pass. Drag-selected "Use fresh beans." then Bold gave `**Use fresh beans.**`; clicking in the first paragraph then Bulleted list gave `- Coffee is a brewed drink.`, and the button shows as pressed.
+- E2E-33: pass (after the fix below). "/" opens a 10-item menu; "task" then Enter makes a checklist under "Use fresh beans."; checking the box gives `- [x] Buy beans`.
+- E2E-34: pass. "/table" inserts a 3×3 table with a header; Tab moves between cells; Add row takes the table from 4 to 5 `|` lines; Add column adds a header cell.
+
+Surprises and fixes:
+- The toolbar didn't render until the first interaction: `useEditorState` had subscribed while the editor was still null. It now remounts when the editor is ready.
+- **Real editor bug found by the MCP walkthrough:** a key pressed right after a click acted on the *old* ProseMirror selection (the browser reports clicks through an async `selectionchange`). Enter then split the document at position 0, and the "/" and the checklist landed above the title. Fixed with `SyncSelectionOnKey`, which syncs the selection from the DOM before any key is handled.
+- **Spec strengthened (flagged for review):** E2E-33 and E2E-34 passed while the content landed in the wrong place. They now also assert that the title is untouched and the new block comes after "Use fresh beans.", as the scenario text says. With the fix disabled, E2E-33 fails, so the assertion catches the bug.
