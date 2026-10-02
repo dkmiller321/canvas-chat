@@ -257,7 +257,7 @@ flowchart LR
 | Editors | Tiptap v3, CodeMirror 6, Excalidraw 0.18 |
 | AI | Vercel AI SDK, OpenRouter provider, scripted mock model |
 | Data | Postgres 16, Drizzle ORM |
-| Tests | Vitest (115 unit tests), Playwright (52 E2E specs) |
+| Tests | Vitest (146 unit tests), Playwright (52 E2E specs) |
 
 ---
 
@@ -287,3 +287,7 @@ The E2E suite runs against the deterministic mock model, so it is fast and needs
 ## Credits
 
 Built on [Excalidraw](https://github.com/excalidraw/excalidraw), [Tiptap](https://github.com/ueberdosis/tiptap) and [CodeMirror](https://codemirror.net). The document-canvas interaction patterns are inspired by [Open Canvas](https://github.com/langchain-ai/open-canvas). See [`NOTICE.md`](NOTICE.md) for details.
+
+## License
+
+[MIT](LICENSE) © 2026 Donald Miller
